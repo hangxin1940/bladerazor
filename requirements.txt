@@ -1,0 +1,16 @@
+agentops==0.2.3
+crewai==0.30.11
+crewai_tools==0.2.6
+FOFA_py==2.0.3
+langchain_openai==0.1.8
+loguru==0.7.2
+psycopg2==2.9.9
+pydantic==2.7.4
+python3_nmap==1.6.0
+PyYAML==6.0.1
+PyYAML==6.0.1
+Requests==2.32.3
+SQLAlchemy==2.0.30
+tiktoken==0.5.2
+tld==0.13
+validators==0.28.3
