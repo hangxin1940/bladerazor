@@ -55,6 +55,7 @@ class FofaSearchTool(BaseTool):
     def __init__(self, db: DB):
         super().__init__()
         self.db = db
+        logger.info("初始化工具 FOFA")
 
     def _run(
             self,

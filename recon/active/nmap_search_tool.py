@@ -17,20 +17,26 @@ class NmapSearchToolSchema(BaseModel):
 
 
 class NmapSearchTool(BaseTool):
-    name: str = "Nmap搜索"
+    name: str = "Nmap"
     description: str = "使用Nmap扫描ip地址，发现开放端口和服务等信息。仅用于ip地址扫描。"
     args_schema: Type[BaseModel] = NmapSearchToolSchema
+    nmap_path: str | None = None
+    db: DB | None = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def __init__(self, db: DB, nmap_path: str = None):
         super().__init__()
-        self.model_config['db'] = db
-        self.model_config['nmap_path'] = nmap_path
+        self.db = db
+        self.nmap_path = None
+        logger.info("初始化工具 Nmap")
 
     def _run(
             self,
             **kwargs: Any,
     ) -> Any:
-        nmap = Nmap(self.model_config['nmap_path'])
+        nmap = Nmap(self.nmap_path)
         ip = kwargs.pop('ip')
         now = datetime.now()
         results = []
@@ -41,9 +47,8 @@ class NmapSearchTool(BaseTool):
             return f"扫描失败: {e}"
         if len(results) == 0:
             return "未找到任何开放端口"
-        db = self.model_config['db']
         try:
-            with db.DBSession() as session:
+            with self.db.DBSession() as session:
                 for port in results:
                     pdb = Port()
                     pdb.ip = ip_address(port.ip).exploded

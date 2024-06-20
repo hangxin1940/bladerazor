@@ -17,9 +17,13 @@ An AI-Driven Pentesting Solution.
 
     # 安装依赖
     pip install -r requirements.txt
-    
 
 ## 数据库
 
     docker run --name bladerazor-pg -e POSTGRES_USER=bladerazor -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=bladerazor -p 15432:5432 -d postgres:16
-    
+
+## LLM
+
+| LLM           | 效果 | 推荐  |
+|---------------|----|-----|
+| gpt-3.5-turbo | 可用 | ⭐⭐⭐ | 

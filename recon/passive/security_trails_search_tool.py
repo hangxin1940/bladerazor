@@ -38,6 +38,7 @@ class SecurityTrailsSearchTool(BaseTool):
     def __init__(self, db: DB):
         super().__init__()
         self.db = db
+        logger.info("初始化工具 SecurityTrails")
 
     def _run(
             self,

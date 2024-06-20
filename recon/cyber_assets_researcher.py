@@ -1,3 +1,4 @@
+import os
 from ipaddress import ip_address, IPv4Address, IPv6Address
 
 from crewai import Agent, Task, Crew
@@ -82,7 +83,7 @@ class CyberAssetsResearchers:
                 使用多种网络资产搜索引擎搜索目标的相关资产信息。
                 尽可能多的获取目标相关资产信息，越多资产这对于后续工作的开展越有利。
                 最终结果会被存入数据库以便后续使用。对于同一个目标，每个工具最多只能调用一次。
-                你首先会判断目标类型。根据目标类型选择合适的工具进行搜索。
+                根据目标类型选择合适的工具进行搜索。
                 需要注意以下几点:
                 - 如果目标为ipv4或ipv6地址，则必须为公网地址，否则不进行扫描。
                 
@@ -123,16 +124,13 @@ class CyberAssetsResearchers:
 
         agents = []
         tasks = []
-        agscout = self.agent_cyber_asset_intelligence_scout(
-            self.llm,
-            [
-                FofaSearchTool(self.db),
-                SecurityTrailsSearchTool(self.db)
-            ]
-        )
-        agents.append(agscout)
-        taskscout = self.task_cyber_assets_recon(agscout, ip.exploded)
-        tasks.append(taskscout)
+        tools = self._getPassiveReconTools()
+        if len(tools) > 0:
+            agscout = self.agent_cyber_asset_intelligence_scout(self.llm, tools)
+            agents.append(agscout)
+
+            taskscout = self.task_cyber_assets_recon(agscout, ip.exploded)
+            tasks.append(taskscout)
         if passive is False:
             agip = self.agent_ip_scanner(
                 self.llm,
@@ -142,6 +140,10 @@ class CyberAssetsResearchers:
 
             taskip = self.task_ip_scan(agip, ip.exploded)
             tasks.append(taskip)
+
+        if len(agents) == 0:
+            raise Exception("无可用工具")
+
         logger.info("初始化智能体 IP侦察")
         return Crew(
             agents=agents,
@@ -149,20 +151,33 @@ class CyberAssetsResearchers:
             verbose=self.verbose,
         )
 
-    def _reconDomainCrew(self, domain: str):
-        agscout = self.agent_cyber_asset_intelligence_scout(
-            self.llm,
-            [
-                FofaSearchTool(self.db),
-                SecurityTrailsSearchTool(self.db)
-            ]
-        )
+    def _getPassiveReconTools(self) -> []:
+        tools = []
+        if os.environ.get('FOFA_EMAIL') is not None and os.environ.get('FOFA_API_KEY') is not None:
+            tools.append(FofaSearchTool(self.db))
+        if os.environ.get('SECURITYTRAILS_API_KEY') is not None:
+            tools.append(SecurityTrailsSearchTool(self.db))
+        return tools
 
-        taskscout = self.task_cyber_assets_recon(agscout, domain)
+    def _reconDomainCrew(self, domain: str):
+
+        agents = []
+        tasks = []
+
+        tools = self._getPassiveReconTools()
+        if len(tools) > 0:
+            agscout = self.agent_cyber_asset_intelligence_scout(self.llm, tools)
+            agents.append(agscout)
+            taskscout = self.task_cyber_assets_recon(agscout, domain)
+            tasks.append(taskscout)
+
+        if len(agents) == 0:
+            raise Exception("无可用工具")
+
         logger.info("初始化智能体 域名侦察")
         return Crew(
-            agents=[agscout],
-            tasks=[taskscout],
+            agents=agents,
+            tasks=tasks,
             verbose=self.verbose,
         )
 
