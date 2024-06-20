@@ -16,7 +16,6 @@ An AI-Driven Pentesting Solution.
     pip-review --local --auto
 
     # 安装依赖
-    conda env update --file environment.yml
     pip install -r requirements.txt
     
 
