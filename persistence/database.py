@@ -24,7 +24,7 @@ class DB(object):
             if cdncount == 0:
                 import yaml
                 from ipaddress import ip_network
-                with open("cdn_servers.yaml") as yamlstream:
+                with open("cdn_servers.yaml", encoding='utf-8') as yamlstream:
                     try:
                         yamldata = yaml.safe_load(yamlstream)
                         for cdn, vals in yamldata["cidr"].items():

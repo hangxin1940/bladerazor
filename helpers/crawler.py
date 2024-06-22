@@ -4,6 +4,8 @@ from urllib.parse import urlparse, urlunparse, urljoin
 
 import urllib3
 
+from helpers.fingers import Match
+
 urllib3.disable_warnings()
 import mmh3
 import requests
