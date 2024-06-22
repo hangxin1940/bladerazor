@@ -4,13 +4,10 @@ from urllib.parse import urlparse, urlunparse, urljoin
 
 import urllib3
 
-from helpers.fingers import Match
-
-urllib3.disable_warnings()
 import mmh3
 import requests
 from bs4 import BeautifulSoup
-
+from config import logger
 from helpers.utils import new_lowsec_requests_session
 
 AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36'
@@ -40,6 +37,12 @@ class HttpHtml:
         self.headers = headers
         self.status = status
         self.body = body
+        self.ip = None
+        self.port = None
+
+    def setIpPort(self, ip, port):
+        self.ip = ip
+        self.port = port
 
     def __repr__(self) -> str:
         return f"HttpHtml(host={self.host!r}, favicons={self.favicons!r}, headers={self.headers!r}, title={self.title!r})"
@@ -120,6 +123,7 @@ def _get_favicons_from_urls(urls: [str]) -> [Favicon]:
     if urls is None or len(urls) == 0:
         return favicons
     for url in urls:
+        logger.debug("crawl_host: favicon {}", url)
         favicon = _get_favicon_hash(url)
         if favicon is not None:
             favicons.add(favicon)
@@ -132,9 +136,11 @@ def crawl_host(host: str) -> HttpHtml:
     :param host:
     :return:
     """
+    logger.debug("crawl_host: {}", host)
     session = new_lowsec_requests_session()
-    res = session.get(host, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False)
+    res = session.get(host, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False, stream=True)
 
+    server_ip, server_port = res.raw._connection.sock.getpeername()
     favicons_url = _get_favicons_urls(host, res.content)
     favicons = _get_favicons_from_urls(favicons_url)
     title = ''
@@ -143,4 +149,5 @@ def crawl_host(host: str) -> HttpHtml:
         title = str(soup.title.string)
 
     html = HttpHtml(host, favicons, title, dict(res.headers), res.status_code, res.text)
+    html.setIpPort(server_ip, server_port)
     return html

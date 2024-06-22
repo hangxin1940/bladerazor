@@ -11,7 +11,8 @@ class MatchType(Enum):
 
 
 class MatchItem:
-    def __init__(self, mtype: MatchType, matches: dict[str, str]):
+    def __init__(self, name: str, mtype: MatchType, matches: dict[str, str]):
+        self.name = name
         self.match_type = mtype
         self.matches = matches
 
@@ -35,7 +36,7 @@ class FingerPrint:
             return None
         for sv in self.favicons:
             if sv == favicon:
-                return MatchItem(MatchType.FAVICON, {favicon: sv})
+                return MatchItem(self.name, MatchType.FAVICON, {favicon: sv})
         return None
 
     def _match_body(self, body: str = None) -> MatchItem | None:
@@ -50,7 +51,7 @@ class FingerPrint:
                 matches[sv] = "<body>"
 
         if len(matches) == len(self.body):
-            return MatchItem(MatchType.BODY, matches)
+            return MatchItem(self.name, MatchType.BODY, matches)
         return None
 
     def _match_headers(self, headers: dict = None) -> MatchItem | None:
@@ -67,7 +68,7 @@ class FingerPrint:
                     if value in headers[key]:
                         matches[key] = f"{value} <in> {headers[key]}"
             if len(matches) == len(self.headers):
-                return MatchItem(MatchType.HEADER, matches)
+                return MatchItem(self.name, MatchType.HEADER, matches)
 
         elif type(self.headers) is list:
             items = headers.items()
@@ -77,7 +78,7 @@ class FingerPrint:
                     if sv in tv:
                         matches[list(headers)[index]] = f"{sv} <in> {tv}"
             if len(matches) >= len(self.headers):
-                return MatchItem(MatchType.HEADER, matches)
+                return MatchItem(self.name, MatchType.HEADER, matches)
 
         return None
 
@@ -105,7 +106,7 @@ class FingerPrint:
                 favs.append(str(fav))
 
         for fav in favs:
-            matched = self._match_favicon(favicon_md5)
+            matched = self._match_favicon(fav)
             if matched is not None:
                 return matched
 
