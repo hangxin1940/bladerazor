@@ -4,12 +4,15 @@ from typing import Union
 
 from psycopg2._psycopg import AsIs
 from psycopg2.extensions import register_adapter
-from sqlalchemy import DateTime, func, Integer, Boolean, ARRAY
+from sqlalchemy import DateTime, func, Integer, Boolean, ARRAY, TEXT
 from sqlalchemy.dialects.postgresql import JSONB, INET, CIDR
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
+
+from helpers.crawler import Favicon
+from helpers.fingers import MatchItem
 
 
 def adapt_pydantic_ip_address(ip):
@@ -103,3 +106,33 @@ class Cdn(Base):
 
     def __repr__(self):
         return f"Cdn(id={self.id!r}, cname={self.cname!r}, cidr={self.cidr!r}, organization={self.organization!r})"
+
+
+class WebInfo(Base):
+    __tablename__: str = "web_infos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    host: Mapped[str] = mapped_column(String(512), nullable=False)
+    schema: Mapped[str] = mapped_column(String(16), nullable=False, comment="协议")
+    url: Mapped[str] = mapped_column(String(2048), nullable=True, comment="URL地址")
+    current_redirects: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="重定向次数")
+    redirect_to: Mapped[str] = mapped_column(String(2048), nullable=True, comment="重定向地址")
+    ip: Mapped[Union[IPv4Address, IPv6Address]] = mapped_column(INET(), nullable=True)
+    port: Mapped[int] = mapped_column(Integer, nullable=True)
+    title: Mapped[str] = mapped_column(String(512), nullable=True)
+    status: Mapped[int] = mapped_column(Integer, nullable=False)
+    headers: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=True, comment="返回头")
+    favicons: Mapped[[Favicon]] = mapped_column(JSONB, nullable=True, comment="图标信息")
+    body: Mapped[str] = mapped_column(TEXT, nullable=True, comment="HTML正文")
+    # TODO cert
+
+    finger_prints: Mapped[[MatchItem]] = mapped_column(JSONB, nullable=True, comment="指纹信息")
+
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"WebInfo(id={self.id!r}, host={self.host!r}, schema={self.schema!r}, url={self.url!r}, " \
+               f"current_redirects={self.current_redirects!r}, redirect_to={self.redirect_to!r}, ip={self.ip!r}, " \
+               f"port={self.port!r}, title={self.title!r}, status={self.status!r}, headers={self.headers!r}, " \
+               f"favicons={self.favicons!r}, body={self.body!r}, finger_prints={self.finger_prints!r}, " \
+               f"created={self.created!r}"

@@ -16,6 +16,13 @@ class MatchItem:
         self.match_type = mtype
         self.matches = matches
 
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'type': self.match_type.value,
+            'matches': self.matches
+        }
+
 
 class FingerPrint:
     def __init__(self,

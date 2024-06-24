@@ -2,8 +2,6 @@ import base64
 import hashlib
 from urllib.parse import urlparse, urlunparse, urljoin
 
-import urllib3
-
 import mmh3
 import requests
 from bs4 import BeautifulSoup
@@ -14,10 +12,10 @@ AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHT
 
 
 class Favicon:
-    def __init__(self, b64data: str, md5hash: str, inthash: int):
+    def __init__(self, b64data: str, md5hash: str, mmh3hash: int):
         self.b64data = b64data
         self.md5hash = md5hash
-        self.inthash = inthash
+        self.mmh3hash = mmh3hash
 
     def __eq__(self, other):
         return self.md5hash == other.md5hash
@@ -25,24 +23,45 @@ class Favicon:
     def __hash__(self):
         return hash(self.md5hash)
 
+    def to_dict(self):
+        return {
+            'b64data': self.b64data,
+            'md5hash': self.md5hash,
+            'mmh3hash': self.mmh3hash
+        }
+
     def __repr__(self) -> str:
-        return f"Favicon(md5hash={self.md5hash!r}, inthash={self.inthash!r})"
+        return f"Favicon(md5hash={self.md5hash!r}, mmh3hash={self.mmh3hash!r})"
 
 
 class HttpHtml:
-    def __init__(self, host: str, favicons: [Favicon], title: str, headers: dict, status: int, body: str):
+    def __init__(self,
+                 host: str,
+                 url: str,
+                 schema: str,
+                 favicons: [Favicon],
+                 title: str,
+                 headers: dict,
+                 status: int,
+                 body: str,
+                 current_redirects: int = 0,
+                 redirect_to: str = None,
+                 ip=None,
+                 port=None,
+                 cert=None):
         self.host = host
+        self.url = url
+        self.schema = schema
+        self.current_redirects = current_redirects
+        self.redirect_to = redirect_to
         self.favicons = favicons
         self.title = title
         self.headers = headers
         self.status = status
         self.body = body
-        self.ip = None
-        self.port = None
-
-    def setIpPort(self, ip, port):
         self.ip = ip
         self.port = port
+        self.cert = cert
 
     def __repr__(self) -> str:
         return f"HttpHtml(host={self.host!r}, favicons={self.favicons!r}, headers={self.headers!r}, title={self.title!r})"
@@ -51,18 +70,18 @@ class HttpHtml:
 def _get_favicon_hash(url: str) -> Favicon | None:
     try:
         session = new_lowsec_requests_session()
-        res = session.get(url, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False)
-        if res.status_code != 200:
-            return None
-        if len(res.content) == 0:
-            return None
-        b64data = base64.encodebytes(res.content)
-        md5data = hashlib.md5(res.content).hexdigest()
-        inthash = mmh3.hash(b64data)
+        with session.get(url, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False) as res:
+            if res.status_code != 200:
+                return None
+            if len(res.content) == 0:
+                return None
+            b64data = base64.encodebytes(res.content)
+            md5data = hashlib.md5(res.content).hexdigest()
+            mmh3hash = mmh3.hash(b64data)
 
-        favicon = Favicon(b64data.decode("utf-8"), md5data, inthash)
+            favicon = Favicon(b64data.decode("utf-8"), md5data, mmh3hash)
 
-        return favicon
+            return favicon
     except requests.exceptions.RequestException as e:
         return None
 
@@ -130,24 +149,78 @@ def _get_favicons_from_urls(urls: [str]) -> [Favicon]:
     return list(favicons)
 
 
-def crawl_host(host: str) -> HttpHtml:
+def _gather_connection_info(response) -> HttpHtml:
+    server_ip = None
+    server_port = None
+    cert = None
+    if hasattr(response.raw, '_connection') and response.raw._connection and hasattr(response.raw._connection,
+                                                                                     'sock'):
+        server_ip, server_port = response.raw._connection.sock.getpeername()
+        # 尝试获取证书信息
+        if response.raw._connection.sock:
+            cert = response.raw._connection.sock.getpeercert()
+
+    full_url = response.url  # 获取完整的请求 URL
+    parsed_url = urlparse(full_url)
+
+    favicons_url = _get_favicons_urls(full_url, response.content)
+    favicons = _get_favicons_from_urls(favicons_url)
+    title = ''
+    if response.content:
+        soup = BeautifulSoup(response.content, features='html.parser')
+        if soup.title:
+            title = str(soup.title.string)
+
+    html = HttpHtml(
+        host=parsed_url.hostname,
+        url=full_url,
+        schema=parsed_url.scheme,
+        favicons=favicons,
+        title=title,
+        headers=dict(response.headers),
+        status=response.status_code,
+        body=response.text,
+        ip=server_ip,
+        port=server_port,
+        cert=cert
+    )
+    return html
+
+
+def crawl_host(host: str) -> [HttpHtml]:
     """
     从host获取html
-    :param host:
-    :return:
+    :param host: 要抓取的主机地址
+    :return: 包含HttpHtml对象的列表，每个对象都是从一次HTTP请求中获得的HTML和相关信息
     """
     logger.debug("crawl_host: {}", host)
     session = new_lowsec_requests_session()
-    res = session.get(host, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False, stream=True)
+    MAX_REDIRECTS = 3  # 定义最大重定向次数
 
-    server_ip, server_port = res.raw._connection.sock.getpeername()
-    favicons_url = _get_favicons_urls(host, res.content)
-    favicons = _get_favicons_from_urls(favicons_url)
-    title = ''
-    soup = BeautifulSoup(res.content, features='html.parser')
-    if soup.title:
-        title = str(soup.title.string)
+    def fetch_url(url, current_redirects=0) -> [HttpHtml]:
+        """
+        辅助函数，用于处理单个URL的获取和重定向
+        :param url: 请求的URL
+        :param current_redirects: 当前重定向次数
+        :return: 收集的Html对象列表
+        """
+        if current_redirects > MAX_REDIRECTS:
+            logger.debug("crawl_host: Reached max redirects: {}", MAX_REDIRECTS)
+            return []
 
-    html = HttpHtml(host, favicons, title, dict(res.headers), res.status_code, res.text)
-    html.setIpPort(server_ip, server_port)
-    return html
+        with session.get(url, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=False, verify=False,
+                         stream=False) as res:
+            htmlobj = _gather_connection_info(res)
+            htmlobj.current_redirects = current_redirects
+            htmls = [htmlobj]
+
+            # 处理重定向
+            if res.is_redirect:
+                new_url = res.headers['Location']
+                htmlobj.redirect_to = new_url
+                logger.debug("crawl_host: Redirecting to: {}", new_url)
+                htmls += fetch_url(new_url, current_redirects + 1)
+
+            return htmls
+
+    return fetch_url(host)
