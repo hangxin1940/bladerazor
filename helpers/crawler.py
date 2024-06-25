@@ -47,7 +47,7 @@ class HttpHtml:
                  favicons: [Favicon] = None,
                  ip=None,
                  port=None,
-                 cert=None):
+                 certs=None):
         self.host = host
         self.url = url
         self.schema = schema
@@ -60,7 +60,7 @@ class HttpHtml:
         self.body = body
         self.ip = ip
         self.port = port
-        self.cert = cert
+        self.certs = certs
 
     def __repr__(self) -> str:
         return f"HttpHtml(host={self.host!r}, favicons={self.favicons!r}, headers={self.headers!r}, title={self.title!r})"
@@ -148,44 +148,6 @@ def _get_favicons_from_urls(urls: [str]) -> [Favicon]:
     return list(favicons)
 
 
-def _gather_connection_info(response) -> HttpHtml:
-    server_ip = None
-    server_port = None
-    cert = None
-    if hasattr(response.raw, '_connection') and response.raw._connection and hasattr(response.raw._connection,
-                                                                                     'sock'):
-        server_ip, server_port = response.raw._connection.sock.getpeername()
-        # 尝试获取证书信息
-        if response.raw._connection.sock:
-            cert = response.raw._connection.sock.getpeercert()
-
-    full_url = response.url  # 获取完整的请求 URL
-    parsed_url = urlparse(full_url)
-
-    favicons_url = _get_favicons_urls(full_url, response.content)
-    favicons = _get_favicons_from_urls(favicons_url)
-    title = ''
-    if response.content:
-        soup = BeautifulSoup(response.content, features='html.parser')
-        if soup.title:
-            title = str(soup.title.string)
-
-    html = HttpHtml(
-        host=parsed_url.hostname,
-        url=full_url,
-        schema=parsed_url.scheme,
-        favicons=favicons,
-        title=title,
-        headers=dict(response.headers),
-        status=response.status_code,
-        body=response.text,
-        ip=server_ip,
-        port=server_port,
-        cert=cert
-    )
-    return html
-
-
 def crawl_host(host: str) -> [HttpHtml]:
     """
     从host获取html
@@ -208,10 +170,12 @@ def crawl_host(host: str) -> [HttpHtml]:
 
         with httpx.Client(headers={'User-Agent': AGENT}, timeout=5, verify=False) as client:
             res = client.get(url)
-            server_ip, server_port = res.stream._stream._httpcore_stream._stream._connection._network_stream._sock.getpeername()
+            socket = res.stream._stream._httpcore_stream._stream._connection._network_stream._sock
+            server_ip, server_port = socket.getpeername()
 
-            # TODO
-            cert = None
+            certs = None
+            if hasattr(socket, '_sslobj') and socket._sslobj:
+                certs = [c.get_info() for c in socket._sslobj.get_unverified_chain()]
 
             title = ''
             if res.content:
@@ -228,7 +192,7 @@ def crawl_host(host: str) -> [HttpHtml]:
                 body=res.text,
                 ip=server_ip,
                 port=server_port,
-                cert=cert
+                certs=certs
             )
 
         favicons_url = _get_favicons_urls(htmlobj.url, htmlobj.body)

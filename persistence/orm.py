@@ -124,7 +124,7 @@ class WebInfo(Base):
     headers: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=True, comment="返回头")
     favicons: Mapped[[Favicon]] = mapped_column(JSONB, nullable=True, comment="图标信息")
     body: Mapped[str] = mapped_column(TEXT, nullable=True, comment="HTML正文")
-    # TODO cert
+    certs: Mapped[[dict]] = mapped_column(JSONB, nullable=True, comment="证书信息")
 
     finger_prints: Mapped[[MatchItem]] = mapped_column(JSONB, nullable=True, comment="指纹信息")
 
