@@ -1,10 +1,5 @@
-import requests
 import tiktoken
 from ipaddress import ip_address, IPv4Address, IPv6Address
-
-import urllib3
-
-from helpers import CustomSSLContextHTTPAdapter
 
 
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
@@ -38,14 +33,3 @@ def is_private_ip(ip: str) -> bool:
         return ip_obj.is_private
     except ValueError:
         return False
-
-
-def new_lowsec_requests_session():
-    session = requests.Session()
-    ctx = urllib3.util.create_urllib3_context()
-    ctx.load_default_certs()
-    ctx.check_hostname = False
-    ctx.set_ciphers("DEFAULT@SECLEVEL=0")
-    session.adapters.pop("https://", None)
-    session.mount("https://", CustomSSLContextHTTPAdapter(ssl_context=ctx))
-    return session

@@ -2,11 +2,10 @@ import base64
 import hashlib
 from urllib.parse import urlparse, urlunparse, urljoin
 
+import httpx
 import mmh3
-import requests
 from bs4 import BeautifulSoup
 from config import logger
-from helpers.utils import new_lowsec_requests_session
 
 AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.79 Safari/537.36'
 
@@ -39,13 +38,13 @@ class HttpHtml:
                  host: str,
                  url: str,
                  schema: str,
-                 favicons: [Favicon],
                  title: str,
                  headers: dict,
                  status: int,
                  body: str,
                  current_redirects: int = 0,
                  redirect_to: str = None,
+                 favicons: [Favicon] = None,
                  ip=None,
                  port=None,
                  cert=None):
@@ -69,8 +68,8 @@ class HttpHtml:
 
 def _get_favicon_hash(url: str) -> Favicon | None:
     try:
-        session = new_lowsec_requests_session()
-        with session.get(url, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=True, verify=False) as res:
+        with httpx.Client(headers={'User-Agent': AGENT}, timeout=5, verify=False) as client:
+            res = client.get(url)
             if res.status_code != 200:
                 return None
             if len(res.content) == 0:
@@ -82,7 +81,7 @@ def _get_favicon_hash(url: str) -> Favicon | None:
             favicon = Favicon(b64data.decode("utf-8"), md5data, mmh3hash)
 
             return favicon
-    except requests.exceptions.RequestException as e:
+    except httpx.RequestError as e:
         return None
 
 
@@ -194,7 +193,6 @@ def crawl_host(host: str) -> [HttpHtml]:
     :return: 包含HttpHtml对象的列表，每个对象都是从一次HTTP请求中获得的HTML和相关信息
     """
     logger.debug("crawl_host: {}", host)
-    session = new_lowsec_requests_session()
     MAX_REDIRECTS = 3  # 定义最大重定向次数
 
     def fetch_url(url, current_redirects=0) -> [HttpHtml]:
@@ -208,21 +206,45 @@ def crawl_host(host: str) -> [HttpHtml]:
             logger.debug("crawl_host: Reached max redirects: {}", MAX_REDIRECTS)
             return []
 
-        with session.get(url, headers={'User-Agent': AGENT}, timeout=5, allow_redirects=False, verify=False,
-                         stream=False) as res:
-            htmlobj = _gather_connection_info(res)
-            htmlobj.current_redirects = current_redirects
-            htmls = [htmlobj]
+        with httpx.Client(headers={'User-Agent': AGENT}, timeout=5, verify=False) as client:
+            res = client.get(url)
+            server_ip, server_port = res.stream._stream._httpcore_stream._stream._connection._network_stream._sock.getpeername()
 
-            # 处理重定向
-            if res.is_redirect:
-                new_url = res.headers['Location']
-                if not bool(urlparse(new_url).netloc):
-                    new_url = urljoin(url, new_url)
-                htmlobj.redirect_to = new_url
-                logger.debug("crawl_host: Redirecting to: {}", new_url)
-                htmls += fetch_url(new_url, current_redirects + 1)
+            # TODO
+            cert = None
 
-            return htmls
+            title = ''
+            if res.content:
+                soup = BeautifulSoup(res.content, features='html.parser')
+                if soup.title:
+                    title = str(soup.title.string)
+            htmlobj = HttpHtml(
+                host=res.url.host,
+                url=str(res.url),
+                schema=res.url.scheme,
+                title=title,
+                headers=dict(res.headers),
+                status=res.status_code,
+                body=res.text,
+                ip=server_ip,
+                port=server_port,
+                cert=cert
+            )
+
+        favicons_url = _get_favicons_urls(htmlobj.url, htmlobj.body)
+        htmlobj.favicons = _get_favicons_from_urls(favicons_url)
+        htmlobj.current_redirects = current_redirects
+        htmls = [htmlobj]
+
+        # 处理重定向
+        if res.is_redirect:
+            new_url = httpx.URL(res.headers['Location'])
+            if new_url.is_relative_url:
+                new_url = res.url.join(new_url)
+            htmlobj.redirect_to = str(new_url)
+            logger.debug("crawl_host: Redirecting to: {}", htmlobj.redirect_to)
+            htmls += fetch_url(htmlobj.redirect_to, current_redirects + 1)
+
+        return htmls
 
     return fetch_url(host)
