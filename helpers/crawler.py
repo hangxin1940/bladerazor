@@ -217,6 +217,8 @@ def crawl_host(host: str) -> [HttpHtml]:
             # 处理重定向
             if res.is_redirect:
                 new_url = res.headers['Location']
+                if not bool(urlparse(new_url).netloc):
+                    new_url = urljoin(url, new_url)
                 htmlobj.redirect_to = new_url
                 logger.debug("crawl_host: Redirecting to: {}", new_url)
                 htmls += fetch_url(new_url, current_redirects + 1)
