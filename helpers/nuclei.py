@@ -90,8 +90,8 @@ class Nuclei:
 
         # Allow changing the path where nuclei is installed (instead of expecting it to be in $PATH)
         # Check if the '/' is at the end - and remove it if "yes"
-        if nucleiPath is not None and nucleiPath[-1] == "/":
-            self.nucleiPath = nucleiPath[:-1]
+        if nucleiAbsPath is not None and nucleiAbsPath[-1] == "/":
+            self.nucleiPath = nucleiAbsPath[:-1]
 
         self.nucleiBinary = "nuclei"
         if self.nucleiPath:
