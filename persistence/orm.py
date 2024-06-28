@@ -128,6 +128,7 @@ class WebInfo(Base):
 
     finger_prints: Mapped[[MatchItem]] = mapped_column(JSONB, nullable=True, comment="指纹信息")
 
+    source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     def __repr__(self):
