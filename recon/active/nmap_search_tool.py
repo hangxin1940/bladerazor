@@ -62,7 +62,7 @@ class NmapSearchTool(BaseTool):
                     pdb.extra_info = {
                         "info": port.extrainfo,
                     }
-                    pdb.source = "nmap"
+                    pdb.source = self.name
                     session.add(pdb)
                 session.commit()
         except exc.SQLAlchemyError as e:

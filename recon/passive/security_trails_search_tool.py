@@ -68,7 +68,7 @@ class SecurityTrailsSearchTool(BaseTool):
                         domaindb.apex_domain = hostobj.fld
                         domaindb.host = result.hostname
                         domaindb.subdomain = hostobj.subdomain
-                        domaindb.source = "securitytrails"
+                        domaindb.source = self.name
                         domaindb.a = []
                         domaindb.aaaa = []
                         domaindb.mx = []
@@ -134,7 +134,7 @@ class SecurityTrailsSearchTool(BaseTool):
                     domaindb.apex_domain = result.apex_domain
                     domaindb.host = result.hostname
                     domaindb.subdomain = result.subdomain
-                    domaindb.source = "securitytrails"
+                    domaindb.source = self.name
                     domaindb.a = []
                     domaindb.aaaa = []
                     domaindb.mx = []

@@ -106,7 +106,7 @@ class FofaSearchTool(BaseTool):
                             domaindb.subdomain = hostobj.subdomain
                             if pdb.checked_time is not None:
                                 domaindb.checked_time = pdb.checked_time
-                            domaindb.source = "fofa"
+                            domaindb.source = self.name
                             domaindb.a = []
                             domaindb.a_cdn = []
                             domaindb.aaaa = []
@@ -162,7 +162,7 @@ class FofaSearchTool(BaseTool):
                             "subject_cn": data.certs_subject_cn,
                         }
                     pdb.extra_info = extra_info
-                    pdb.source = "fofa"
+                    pdb.source = self.name
                     session.add(pdb)
                     if domaindb is not None:
                         session.add(domaindb)
