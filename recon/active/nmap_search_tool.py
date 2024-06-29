@@ -29,7 +29,7 @@ class NmapSearchTool(BaseTool):
     def __init__(self, db: DB, nmap_path: str = None):
         super().__init__()
         self.db = db
-        self.nmap_path = None
+        self.nmap_path = nmap_path
         logger.info("初始化工具 Nmap")
 
     def _run(
