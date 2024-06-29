@@ -137,3 +137,31 @@ class WebInfo(Base):
                f"port={self.port!r}, title={self.title!r}, status={self.status!r}, headers={self.headers!r}, " \
                f"favicons={self.favicons!r}, body={self.body!r}, finger_prints={self.finger_prints!r}, " \
                f"created={self.created!r}"
+
+
+class Vul(Base):
+    __tablename__: str = "vuls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    target: Mapped[str] = mapped_column(String(512), nullable=False)
+    host: Mapped[str] = mapped_column(String(512), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False, comment="类型")
+    vul_name: Mapped[str] = mapped_column(String(256), nullable=False, comment="漏洞名称")
+    vul_detail: Mapped[str] = mapped_column(TEXT, nullable=True, comment="漏洞详情")
+    vul_point: Mapped[str] = mapped_column(TEXT, nullable=True, comment="漏洞利用点")
+    solution: Mapped[str] = mapped_column(TEXT, nullable=True, comment="解决方案")
+    cve_id: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True, comment="CVE编号")
+    cwe_id: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True, comment="CWE编号")
+    cnvd_id: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True, comment="CNVD编号")
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, comment="严重程度")
+    description: Mapped[str] = mapped_column(TEXT, nullable=True, comment="描述")
+    extra_info: Mapped[dict] = mapped_column(JSONB, nullable=True, comment="其他信息")
+    source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"Vul(id={self.id!r}, target={self.target!r}, host={self.host!r}, type={self.type!r}, " \
+               f"vul_name={self.vul_name!r}, vul_detail={self.vul_detail!r}, vul_point={self.vul_point!r}, " \
+               f"solution={self.solution!r}, cve_id={self.cve_id!r}, cwe_id={self.cwe_id!r}, cnvd_id={self.cnvd_id!r}, " \
+               f"severity={self.severity!r}, description={self.description!r}, extra_info={self.extra_info!r}, " \
+               f"source={self.source!r}, created={self.created!r}"

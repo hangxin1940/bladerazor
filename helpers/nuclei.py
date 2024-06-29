@@ -277,47 +277,47 @@ class Nuclei:
                 data.severity = vuln["info"]["severity"]
                 data.tags = vuln["info"]["tags"]
 
-                if "description" in vuln["info"]:
+                if "description" in vuln["info"] and vuln["info"]["description"]:
                     data.description = vuln["info"]["description"]
 
-                if "severity" in vuln["info"]:
+                if "severity" in vuln["info"] and vuln["info"]["severity"]:
                     data.severity = vuln["info"]["severity"]
 
-                if "reference" in vuln["info"]:
-                    if vuln["info"]["reference"]:
-                        if isinstance(vuln["info"]["reference"], str):
-                            data.reference = [vuln["info"]["reference"]]
-                        elif isinstance(vuln["info"]["reference"], list):
-                            data.reference = vuln["info"]["reference"]
+                if "reference" in vuln["info"] and vuln["info"]["reference"]:
+                    if isinstance(vuln["info"]["reference"], str):
+                        data.reference = [vuln["info"]["reference"]]
+                    elif isinstance(vuln["info"]["reference"], list):
+                        data.reference = vuln["info"]["reference"]
 
-                if "remediation" in vuln["info"]:
+                if "remediation" in vuln["info"] and vuln["info"]["remediation"]:
                     data.solution = vuln["info"]["remediation"]
 
-                if "classification" in vuln["info"]:
+                if "classification" in vuln["info"] and vuln["info"]["classification"]:
 
-                    if "cvss-metrics" in vuln["info"]["classification"]:
+                    if "cvss-metrics" in vuln["info"]["classification"] and vuln["info"]["classification"][
+                        "cvss-metrics"]:
                         data.cvss_metrics = vuln["info"]["classification"]["cvss-metrics"]
 
-                    if "cvss-score" in vuln["info"]["classification"]:
+                    if "cvss-score" in vuln["info"]["classification"] and vuln["info"]["classification"]["cvss-score"]:
                         data.cvss_score = vuln["info"]["classification"]["cvss-score"]
 
-                    if "cve-id" in vuln["info"]["classification"]:
+                    if "cve-id" in vuln["info"]["classification"] and vuln["info"]["classification"]["cve-id"]:
                         data.cve_id = vuln["info"]["classification"]["cve-id"]
 
-                    if "cwe-id" in vuln["info"]["classification"]:
+                    if "cwe-id" in vuln["info"]["classification"] and vuln["info"]["classification"]["cwe-id"]:
                         if isinstance(vuln["info"]["classification"]["cwe-id"], list) and \
                                 vuln["info"]["classification"]["cwe-id"]:
                             data.cwe_id = vuln["info"]["classification"]["cwe-id"]
                         else:
                             data.cwe_id = [vuln["info"]["classification"]["cwe-id"]]
 
-                if "extracted-results" in vuln:
+                if "extracted-results" in vuln and vuln["extracted-results"]:
                     data.result = vuln["extracted-results"]
 
-                if "curl-command" in vuln:
+                if "curl-command" in vuln and vuln["curl-command"]:
                     data.curl = vuln["curl-command"]
 
-                if "matcher-name" in vuln:
+                if "matcher-name" in vuln and vuln["matcher-name"]:
                     data.vulnerability_detail = vuln["matcher-name"]
 
                 formattedReport.add(data)
