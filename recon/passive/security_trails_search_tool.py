@@ -18,12 +18,17 @@ from config import logger
 class SecurityTrailsSearchToolSchema(BaseModel):
     """SecurityTrailsSearchTool 的查询参数"""
     domain: str = Field(
+        None,
         description="域名，用于搜索包含此关键字的域名资产，支持精确和模糊搜索。例如：`example.com`")
-    ip: str = Field(description="IP地址，支持单一IPv4地址。例如：`1.1.1.1`。使用此参数时，不能携带其他参数。")
+    ip: str = Field(None, description="IP地址，支持单一IPv4地址。例如：`1.1.1.1`。使用此参数时，不能携带其他参数。")
     history: bool = Field(
-        description="是否查询域名解析历史，仅对domain有效，默认为False。只能与domain参数单独使用。", default=False)
+        None,
+        default=False,
+        description="是否查询域名解析历史，仅对domain有效，默认为False。只能与domain参数单独使用。")
     fuzzy: bool = Field(
-        description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。", default=False)
+        None,
+        default=False,
+        description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。")
 
 
 class SecurityTrailsSearchTool(BaseTool):

@@ -19,28 +19,34 @@ class FofaSearchToolSchema(BaseModel):
 
     # 基础类
     domain: str = Field(
+        None,
         description="域名，用于搜索包含此关键字的域名资产，支持精确和模糊搜索。例如：`example.com`")
-    ip: str = Field(description="IP地址，支持单一IPv4地址、IPv4 C段和单一IPv6地址。例如：`1.1.1.1` 或 `1.1.1.1/24`")
-    org: str = Field(description="所属组织，用于搜索包含此组织的资产。例如：`Google`")
+    ip: str = Field(None, description="IP地址，支持单一IPv4地址、IPv4 C段和单一IPv6地址。例如：`1.1.1.1` 或 `1.1.1.1/24`")
+    org: str = Field(None, description="所属组织，用于搜索包含此组织的资产。例如：`Google`")
 
     # 标记类
     app: str = Field(
+        None,
         description="应用名称，用于搜索包含此应用的资产。小众或自研软件结果精确，通用软件如`Apache` `nginx`结果可能不精确。例如：`Apache`")
 
     # 网站类
-    title: str = Field(description="网页标题，用于搜索包含此标题的资产。例如：`Google`")
+    title: str = Field(None, description="网页标题，用于搜索包含此标题的资产。例如：`Google`")
     header: str = Field(
+        None,
         description="响应头，用于搜索响应头包含此关键字的资产。小众或自研软件结果精确。例如：`X-Elastic-Product`")
-    body: str = Field(description="HTML正文，用于搜索包含此关键字的资产。例如：`百度一下`")
-    js_name: str = Field(description="HTML正文包含的JS，用于搜索包含此JS引用关键字的资产。例如：`js/jquery.js`")
-    icon_hash: str = Field(description="网站图标的hash值，用于搜索包含此图标hash值的资产。例如：`-247388890`")
+    body: str = Field(None, description="HTML正文，用于搜索包含此关键字的资产。例如：`百度一下`")
+    js_name: str = Field(None, description="HTML正文包含的JS，用于搜索包含此JS引用关键字的资产。例如：`js/jquery.js`")
+    icon_hash: str = Field(None, description="网站图标的hash值，用于搜索包含此图标hash值的资产。例如：`-247388890`")
     icp: str = Field(
+        None,
         description="ICP备案号，用于搜索包含此备案号的资产。中国大陆网站需ICP备案。例如：`京ICP证030173号`")
 
     # 证书类
-    cert: str = Field(description="证书信息，用于搜索证书中包含此关键字的资产。例如：`Let's Encrypt`")
+    cert: str = Field(None, description="证书信息，用于搜索证书中包含此关键字的资产。例如：`Let's Encrypt`")
     fuzzy: bool = Field(
-        description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。", default=False)
+        None,
+        default=False,
+        description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。")
 
 
 class FofaSearchTool(BaseTool):

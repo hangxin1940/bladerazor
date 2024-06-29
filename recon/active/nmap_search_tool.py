@@ -13,7 +13,7 @@ from config import logger
 
 class NmapSearchToolSchema(BaseModel):
     """NmapSearchToolSchema 的查询参数"""
-    ip: str = Field(description="ip地址")
+    ip: str = Field(..., description="ip地址")
 
 
 class NmapSearchTool(BaseTool):
