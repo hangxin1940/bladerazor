@@ -118,6 +118,7 @@ class WebInfo(Base):
     current_redirects: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="重定向次数")
     redirect_to: Mapped[str] = mapped_column(String(2048), nullable=True, comment="重定向地址")
     ip: Mapped[Union[IPv4Address, IPv6Address]] = mapped_column(INET(), nullable=True)
+    ip_cdn: Mapped[str] = mapped_column(String(32), nullable=True)
     port: Mapped[int] = mapped_column(Integer, nullable=True)
     title: Mapped[str] = mapped_column(String(512), nullable=True)
     status: Mapped[int] = mapped_column(Integer, nullable=False)
