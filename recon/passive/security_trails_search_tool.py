@@ -22,11 +22,9 @@ class SecurityTrailsSearchToolSchema(BaseModel):
         description="域名，用于搜索包含此关键字的域名资产，支持精确和模糊搜索。例如：`example.com`")
     ip: str = Field(None, description="IP地址，支持单一IPv4地址。例如：`1.1.1.1`。使用此参数时，不能携带其他参数。")
     history: bool = Field(
-        None,
         default=False,
         description="是否查询域名解析历史，仅对domain有效，默认为False。只能与domain参数单独使用。")
     fuzzy: bool = Field(
-        None,
         default=False,
         description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。")
 
@@ -75,7 +73,9 @@ class SecurityTrailsSearchTool(BaseTool):
                         domaindb.subdomain = hostobj.subdomain
                         domaindb.source = self.name
                         domaindb.a = []
+                        domaindb.a_cdn = []
                         domaindb.aaaa = []
+                        domaindb.aaaa_cdn = []
                         domaindb.mx = []
                         domaindb.ns = []
                         domaindb.soa = []
@@ -147,7 +147,7 @@ class SecurityTrailsSearchTool(BaseTool):
                     domaindb.soa = []
                     domaindb.txt = []
                     for ip in result.ips:
-                        ipobj = ip_address(result.ip)
+                        ipobj = ip_address(ip)
                         ipcdn = session.query(Cdn).filter(Cdn.cidr.op('>>')(ipobj.exploded)).first()
                         ip_type = get_ip_type(ip)
                         if ip_type == "ipv4":

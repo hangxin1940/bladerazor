@@ -44,7 +44,6 @@ class FofaSearchToolSchema(BaseModel):
     # 证书类
     cert: str = Field(None, description="证书信息，用于搜索证书中包含此关键字的资产。例如：`Let's Encrypt`")
     fuzzy: bool = Field(
-        None,
         default=False,
         description="是否模糊搜索，用于拓展资产，但会降低准确性，默认为False。只能与domain参数单独使用。")
 
