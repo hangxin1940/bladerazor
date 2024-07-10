@@ -60,6 +60,7 @@ class NucleiResult(BaseModel):
 
 
 class NucleiTemplate(BaseModel):
+    dir: Optional[str] = Field()
     file: Optional[str] = Field()
     id: Optional[str] = Field()
     name: Optional[str] = Field()
@@ -121,7 +122,7 @@ class Nuclei:
             "headless", "fuzzing", "helpers",
         ]
 
-    def nucleiTemplates(self):
+    def nucleiTemplates(self, tree=False):
         yaml_files = []
 
         # os.walk生成一个三元组(root, dirs, files)，用于遍历目录
@@ -132,12 +133,16 @@ class Nuclei:
             for file in glob.glob(os.path.join(root, '*.yml')):
                 yaml_files.append(file)
 
-        templates = {}
+        if tree:
+            templates = {}
+        else:
+            templates = []
         for yaml_file in yaml_files:
             yaml = self._parseTemplate(yaml_file)
             if yaml is not None and 'id' in yaml and 'info' in yaml:
                 nt = NucleiTemplate()
                 nt.file = os.path.relpath(yaml_file, self.templatesPath)
+                nt.dir = os.path.dirname(nt.file)
                 nt.id = yaml['id']
                 nt.name = yaml['info']['name']
                 if 'severity' in yaml['info']:
@@ -154,15 +159,18 @@ class Nuclei:
                 else:
                     nt.tags = []
 
-                nested_dict = templates
-                path_parts = nt.file.split(os.sep)
-                for part in path_parts[:-1]:
-                    if part not in nested_dict:
-                        nested_dict[part] = {}
-                    nested_dict = nested_dict[part]
-                if path_parts[-1] not in nested_dict:
-                    nested_dict[path_parts[-1]] = []
-                nested_dict[path_parts[-1]].append(nt)
+                if tree:
+                    nested_dict = templates
+                    path_parts = nt.file.split(os.sep)
+                    for part in path_parts[:-1]:
+                        if part not in nested_dict:
+                            nested_dict[part] = {}
+                        nested_dict = nested_dict[part]
+                    if path_parts[-1] not in nested_dict:
+                        nested_dict[path_parts[-1]] = []
+                    nested_dict[path_parts[-1]].append(nt)
+                else:
+                    templates.append(nt)
 
         # TODO
         return templates
