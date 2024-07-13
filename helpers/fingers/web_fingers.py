@@ -23,6 +23,9 @@ class MatchItem:
             'matches': self.matches
         }
 
+    def __repr__(self):
+        return f"MatchItem(name={self.name!r}, type={self.match_type!r}, matches={self.matches!r})"
+
 
 class FingerPrint:
     def __init__(self,

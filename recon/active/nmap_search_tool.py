@@ -7,7 +7,7 @@ from sqlalchemy import exc
 
 from helpers.nmap import Nmap
 from persistence.database import DB
-from persistence.orm import Port
+from persistence.orm import Port, DuplicateException
 from config import logger
 
 
@@ -22,13 +22,15 @@ class NmapSearchTool(BaseTool):
     args_schema: Type[BaseModel] = NmapSearchToolSchema
     nmap_path: str | None = None
     db: DB | None = None
+    task_id: int | None = None
 
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, db: DB, nmap_path: str = None):
+    def __init__(self, db: DB, task_id: int, nmap_path: str = None):
         super().__init__()
         self.db = db
+        self.task_id = task_id
         self.nmap_path = nmap_path
         logger.info("初始化工具 Nmap")
 
@@ -51,6 +53,7 @@ class NmapSearchTool(BaseTool):
             with self.db.DBSession() as session:
                 for port in results:
                     pdb = Port()
+                    pdb.task_id = self.task_id
                     pdb.ip = ip_address(port.ip).exploded
                     pdb.protocol = port.protocol
                     pdb.port = port.portid
@@ -63,8 +66,14 @@ class NmapSearchTool(BaseTool):
                         "info": port.extrainfo,
                     }
                     pdb.source = self.name
-                    session.add(pdb)
-                session.commit()
+                    try:
+                        session.add(pdb)
+                        session.commit()
+                    except DuplicateException:
+                        session.rollback()
+                    except Exception:
+                        raise
+
         except exc.SQLAlchemyError as e:
             logger.error("数据库错误: {}", e)
             return "数据库错误"

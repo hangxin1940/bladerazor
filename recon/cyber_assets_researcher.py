@@ -1,5 +1,5 @@
 import os
-from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_address
 
 from crewai import Agent, Task, Crew
 from crewai_tools import BaseTool
@@ -117,14 +117,15 @@ class CyberAssetsResearchers:
             agent=agent,
         )
 
-    def _reconIpCrew(self, ip: IPv4Address | IPv6Address, passive: bool = True):
+    def _reconIpCrew(self, task_id: int, target: str, passive: bool = True):
+        ip = ip_address(target)
         if ip.is_private:
             # TODO
             raise NotImplementedError("暂不支持内网地址的扫描")
 
         agents = []
         tasks = []
-        tools = self._getPassiveReconTools()
+        tools = self._getPassiveReconTools(task_id)
         if len(tools) > 0:
             agscout = self.agent_cyber_asset_intelligence_scout(self.llm, tools)
             agents.append(agscout)
@@ -134,7 +135,7 @@ class CyberAssetsResearchers:
         if passive is False:
             agip = self.agent_ip_scanner(
                 self.llm,
-                [NmapSearchTool(self.db, self.nmap_path)]
+                [NmapSearchTool(self.db, task_id, self.nmap_path)]
             )
             agents.append(agip)
 
@@ -151,24 +152,23 @@ class CyberAssetsResearchers:
             verbose=self.verbose,
         )
 
-    def _getPassiveReconTools(self) -> []:
+    def _getPassiveReconTools(self, task_id: int) -> []:
         tools = []
         if os.environ.get('FOFA_EMAIL') is not None and os.environ.get('FOFA_API_KEY') is not None:
-            tools.append(FofaSearchTool(self.db))
+            tools.append(FofaSearchTool(self.db, task_id))
         if os.environ.get('SECURITYTRAILS_API_KEY') is not None:
-            tools.append(SecurityTrailsSearchTool(self.db))
+            tools.append(SecurityTrailsSearchTool(self.db, task_id))
         return tools
 
-    def _reconDomainCrew(self, domain: str):
-
+    def _reconDomainCrew(self, task_id: int, target: str):
         agents = []
         tasks = []
 
-        tools = self._getPassiveReconTools()
+        tools = self._getPassiveReconTools(task_id)
         if len(tools) > 0:
             agscout = self.agent_cyber_asset_intelligence_scout(self.llm, tools)
             agents.append(agscout)
-            taskscout = self.task_cyber_assets_recon(agscout, domain)
+            taskscout = self.task_cyber_assets_recon(agscout, target)
             tasks.append(taskscout)
 
         if len(agents) == 0:
@@ -181,21 +181,22 @@ class CyberAssetsResearchers:
             verbose=self.verbose,
         )
 
-    def reconCrew(self, target: str):
-        # ip地址
+    def reconCrew(self, task_id: int, target: str):
+
         try:
+            # ip地址
             ipobj = ip_address(target)
             logger.info("IP目标 {}", target)
-            return self._reconIpCrew(ipobj)
+            return self._reconIpCrew(task_id, target)
         except ValueError:
             pass
 
         if validators.url(target):
             # url
             logger.info("url目标 {}", target)
-            return self._reconDomainCrew(target)
+            return self._reconDomainCrew(task_id, target)
         elif validators.domain(target):
             # domain
             logger.info("domain目标 {}", target)
-            return self._reconDomainCrew(target)
+            return self._reconDomainCrew(task_id, target)
         raise ValueError("目标类型不支持")

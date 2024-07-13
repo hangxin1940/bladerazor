@@ -10,7 +10,7 @@ from sqlalchemy import exc
 from helpers.security_trails_api import SecurityTrailsApi
 from helpers.utils import get_ip_type
 from persistence.database import DB
-from persistence.orm import Domain, Cdn
+from persistence.orm import Domain, Cdn, DuplicateException
 from tld import get_tld
 from config import logger
 
@@ -34,13 +34,15 @@ class SecurityTrailsSearchTool(BaseTool):
     description: str = "网络资产搜索引擎，不直接接触目标资产，对目标无副作用。支持搜索IP地址、域名、子域名以及域名的解析记录，不适用于内网ip。短时间内大量查询可能会被限制。同一个目标在短时间内也不应当重复查询。"
     args_schema: Type[BaseModel] = SecurityTrailsSearchToolSchema
     db: DB | None = None
+    task_id: int | None = None
 
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, db: DB):
+    def __init__(self, db: DB, task_id: int):
         super().__init__()
         self.db = db
+        self.task_id = task_id
         logger.info("初始化工具 SecurityTrails")
 
     def _run(
@@ -68,6 +70,7 @@ class SecurityTrailsSearchTool(BaseTool):
                     for result in results:
                         hostobj = get_tld(result.hostname, fail_silently=True, as_object=True, fix_protocol=True)
                         domaindb = Domain()
+                        domaindb.task_id = self.task_id
                         domaindb.apex_domain = hostobj.fld
                         domaindb.host = result.hostname
                         domaindb.subdomain = hostobj.subdomain
@@ -103,8 +106,13 @@ class SecurityTrailsSearchTool(BaseTool):
                                     domaindb.aaaa_cdn.append(ipcdn.organization)
                                 else:
                                     domaindb.aaaa_cdn.append(None)
-                        session.add(domaindb)
-                    session.commit()
+                        try:
+                            session.add(domaindb)
+                            session.commit()
+                        except DuplicateException:
+                            session.rollback()
+                        except Exception:
+                            raise
             except exc.SQLAlchemyError as e:
                 logger.error("数据库错误: {}", e)
                 return "数据库错误"
@@ -136,12 +144,15 @@ class SecurityTrailsSearchTool(BaseTool):
             with self.db.DBSession() as session:
                 for result in results:
                     domaindb = Domain()
+                    domaindb.task_id = self.task_id
                     domaindb.apex_domain = result.apex_domain
                     domaindb.host = result.hostname
                     domaindb.subdomain = result.subdomain
                     domaindb.source = self.name
                     domaindb.a = []
+                    domaindb.a_cdn = []
                     domaindb.aaaa = []
+                    domaindb.aaaa_cdn = []
                     domaindb.mx = []
                     domaindb.ns = []
                     domaindb.soa = []
@@ -162,9 +173,14 @@ class SecurityTrailsSearchTool(BaseTool):
                                 domaindb.aaaa_cdn.append(ipcdn.organization)
                             else:
                                 domaindb.aaaa_cdn.append(None)
-                    session.add(domaindb)
+                    try:
+                        session.add(domaindb)
+                        session.commit()
+                    except DuplicateException:
+                        session.rollback()
+                    except Exception:
+                        raise
 
-                session.commit()
         except exc.SQLAlchemyError as e:
             logger.error("数据库错误: {}", e)
             return "数据库错误"

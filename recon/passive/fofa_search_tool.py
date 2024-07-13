@@ -9,7 +9,7 @@ from sqlalchemy import exc
 from helpers.fofa_api import FofaApi
 from helpers.utils import get_ip_type
 from persistence.database import DB
-from persistence.orm import Port, Domain, Cdn
+from persistence.orm import Port, Domain, Cdn, DuplicateException
 from tld import get_tld
 from config import logger
 
@@ -53,13 +53,15 @@ class FofaSearchTool(BaseTool):
     description: str = "网络资产搜索引擎，不直接接触目标资产，对目标无副作用。支持搜索IP地址、域名、证书等信息，不适用于内网ip。短时间内大量查询可能会被限制。同一个目标在短时间内也不应当重复查询。"
     args_schema: Type[BaseModel] = FofaSearchToolSchema
     db: DB | None = None
+    task_id: int | None = None
 
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, db: DB):
+    def __init__(self, db: DB, task_id: int):
         super().__init__()
         self.db = db
+        self.task_id = task_id
         logger.info("初始化工具 FOFA")
 
     def _run(
@@ -82,6 +84,7 @@ class FofaSearchTool(BaseTool):
             with self.db.DBSession() as session:
                 for data in results:
                     pdb = Port()
+                    pdb.task_id = self.task_id
                     pdb.ip = ip_address(data.ip)
 
                     ipcdn = session.query(Cdn).filter(Cdn.cidr.op('>>')(pdb.ip.exploded)).first()
@@ -103,6 +106,7 @@ class FofaSearchTool(BaseTool):
                         hostobj = get_tld(data.host, fail_silently=True, as_object=True, fix_protocol=True)
                         if hostobj is not None:
                             domaindb = Domain()
+                            domaindb.task_id = self.task_id
                             if hostobj.subdomain == "":
                                 domaindb.host = hostobj.fld
                             else:
@@ -168,11 +172,23 @@ class FofaSearchTool(BaseTool):
                         }
                     pdb.extra_info = extra_info
                     pdb.source = self.name
-                    session.add(pdb)
-                    if domaindb is not None:
-                        session.add(domaindb)
+                    try:
+                        session.add(pdb)
+                        session.commit()
+                    except DuplicateException as e:
+                        session.rollback()
+                    except Exception as e:
+                        raise
 
-                session.commit()
+                    if domaindb is not None:
+                        try:
+                            session.add(domaindb)
+                            session.commit()
+                        except DuplicateException as e:
+                            session.rollback()
+                        except Exception as e:
+                            raise
+
         except exc.SQLAlchemyError as e:
             logger.error("数据库错误: {}", e)
             return "数据库错误"
