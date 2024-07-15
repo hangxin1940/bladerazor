@@ -95,7 +95,7 @@ class FofaSearchTool(BaseTool):
                     pdb.port = data.port
                     pdb.service = data.protocol
                     pdb.product = data.product
-                    pdb.version = data.version
+                    pdb.version = data.version.rstrip("/")
                     if data.lastupdatetime is not None and data.lastupdatetime != "":
                         pdb.checked_time = datetime.strptime(data.lastupdatetime, "%Y-%m-%d %H:%M:%S")
                     pdb.is_passive = True
