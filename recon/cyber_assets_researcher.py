@@ -181,13 +181,13 @@ class CyberAssetsResearchers:
             verbose=self.verbose,
         )
 
-    def reconCrew(self, task_id: int, target: str):
+    def reconCrew(self, task_id: int, target: str, passive: bool = False):
 
         try:
             # ip地址
             ipobj = ip_address(target)
             logger.info("IP目标 {}", target)
-            return self._reconIpCrew(task_id, target)
+            return self._reconIpCrew(task_id, target, passive)
         except ValueError:
             pass
 
