@@ -171,7 +171,10 @@ def crawl_host(host: str) -> [HttpHtml]:
         with httpx.Client(headers={'User-Agent': AGENT}, timeout=5, verify=False) as client:
             res = client.get(url)
             socket = res.stream._stream._httpcore_stream._stream._connection._network_stream._sock
-            server_ip, server_port = socket.getpeername()
+            try:
+                server_ip, server_port = socket.getpeername()
+            except OSError:
+                server_ip, server_port = None, None
 
             certs = None
             if hasattr(socket, '_sslobj') and socket._sslobj:
