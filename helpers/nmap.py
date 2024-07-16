@@ -25,7 +25,7 @@ class Nmap:
         self.nmap = nmap3.NmapScanTechniques(path=path)
 
     def scan_full(self, target: str) -> [PortResult]:
-        args = "-p- -Pn -sV -sC -A -sT"
+        args = "-p- -Pn -sV -sC -A"
         logger.debug("nmap {target} {args}", target=target, args=args)
         results = self.nmap.nmap_tcp_scan(target=target, args=args)
         results.pop("stats")
