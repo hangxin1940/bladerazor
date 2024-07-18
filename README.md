@@ -20,10 +20,35 @@ An AI-Driven Pentesting Solution.
 
 ## 数据库
 
-    docker run --name bladerazor-pg -e POSTGRES_USER=bladerazor -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=bladerazor -p 15432:5432 -d postgres:16
+    docker run --name bladerazor-pg \
+        -e POSTGRES_USER=bladerazor \
+        -e POSTGRES_PASSWORD=123456 \
+        -e POSTGRES_DB=bladerazor \
+        -p 15432:5432 \
+        -d postgres:16
 
 ## LLM
 
 | LLM           | 效果 | 推荐  |
 |---------------|----|-----|
 | gpt-3.5-turbo | 可用 | ⭐⭐⭐ | 
+
+## 工作机制
+
+```mermaid
+---
+title: 智能代理工作流程
+---
+stateDiagram-v2
+    state "资产侦察" as Recon
+    state "资产测绘" as AssetMapping
+    state "漏扫" as VulScan
+    state "漏洞分析与利用" as Exploit
+    state nwe_assets_state <<choice>>
+    [*] --> Recon
+    Recon --> nwe_assets_state
+    nwe_assets_state --> Recon: 有新资产
+    nwe_assets_state --> AssetMapping: 无新资产
+    AssetMapping --> VulScan
+    VulScan --> Exploit
+```

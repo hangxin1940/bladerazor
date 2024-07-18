@@ -74,6 +74,8 @@ class Port(Base):
 
     source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
 
+    task_state: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="任务状态")
+
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     checked_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=None, nullable=True)
 
@@ -126,6 +128,8 @@ class Domain(Base):
     txt: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True)
     extra_info: Mapped[dict] = mapped_column(JSONB, nullable=True, comment="其他信息")
     source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
+
+    task_state: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="任务状态")
 
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     checked_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=None, nullable=True)
