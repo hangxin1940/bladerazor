@@ -155,6 +155,7 @@ class CyberAssetsResearchers:
             agents=agents,
             tasks=tasks,
             verbose=self.verbose,
+            share_crew=False
         )
 
     def _getPassiveReconTools(self, task_id: int) -> []:
@@ -184,6 +185,7 @@ class CyberAssetsResearchers:
             agents=agents,
             tasks=tasks,
             verbose=self.verbose,
+            share_crew=False
         )
 
     def reconCrew(self, task_id: int, target: str, passive: bool = False):
