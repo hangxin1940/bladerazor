@@ -6,6 +6,7 @@ from crewai_tools import BaseTool
 from textwrap import dedent
 
 from persistence.database import DB
+from recon.active.masscan_search_tool import MasscanSearchTool
 from recon.active.nmap_search_tool import NmapSearchTool
 from recon.passive.fofa_search_tool import FofaSearchTool
 from recon.passive.security_trails_search_tool import SecurityTrailsSearchTool
@@ -19,9 +20,10 @@ class CyberAssetsResearchers:
     主要用于网络资产的被动侦察和主动扫描，以扩大攻击面
     """
 
-    def __init__(self, db: DB, llm=None, nmap_path="", verbose: bool = False):
+    def __init__(self, db: DB, llm=None, masscan_path=None, nmap_path=None, verbose: bool = False):
         self.llm = llm
         self.db = db
+        self.masscan_path = masscan_path
         self.nmap_path = nmap_path
         self.verbose = verbose
 
@@ -135,7 +137,10 @@ class CyberAssetsResearchers:
         if passive is False:
             agip = self.agent_ip_scanner(
                 self.llm,
-                [NmapSearchTool(self.db, task_id, self.nmap_path)]
+                [
+                    MasscanSearchTool(self.db, task_id, self.masscan_path),
+                    NmapSearchTool(self.db, task_id, self.nmap_path)
+                ]
             )
             agents.append(agip)
 

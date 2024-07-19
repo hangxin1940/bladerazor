@@ -15,12 +15,14 @@ class Team:
                  db: DB,
                  llm,
                  debug: Optional[bool] = None,
+                 masscan_path: Optional[str] = None,
                  nmap_path: Optional[str] = None,
                  nuclei_path: Optional[str] = None,
                  nuclei_templates_path: Optional[str] = None):
         self.cyberAssetsResearchers = CyberAssetsResearchers(
             db=db,
             llm=llm,
+            masscan_path=masscan_path,
             nmap_path=nmap_path,
             verbose=debug
         )

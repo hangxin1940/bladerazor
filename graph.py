@@ -194,11 +194,11 @@ class TaskNodes:
             for port in ports:
                 target = Target(task_id, port.ip)
                 state['targets'].add(target)
-                if port.service.startswith('http'):
+                if port.service is not None and port.service.startswith('http'):
                     target = Target(task_id, f'{port.service}://{port.ip}:{port.port}', self.db, port.id, Port)
                     state['targets'].add(target)
 
-                if "domain" in port.extra_info:
+                if port.extra_info is not None and "domain" in port.extra_info:
                     target = Target(task_id, port.extra_info["domain"])
                     state['targets'].add(target)
 
