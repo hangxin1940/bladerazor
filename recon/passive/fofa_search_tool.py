@@ -116,6 +116,8 @@ class FofaSearchTool(BaseTool):
                             if pdb.checked_time is not None:
                                 domaindb.checked_time = pdb.checked_time
                             domaindb.source = self.name
+                            domaindb.cname = []
+                            domaindb.cname_cdn = []
                             domaindb.a = []
                             domaindb.a_cdn = []
                             domaindb.aaaa = []
@@ -147,10 +149,13 @@ class FofaSearchTool(BaseTool):
                         cnametld = get_tld(data.cname, fail_silently=True, as_object=True, fix_protocol=True)
                         extra_info["cname"] = cnametld.parsed_url.hostname
                         if domaindb is not None:
-                            domaindb.cname = cnametld.parsed_url.hostname
-                            cnamecdn = session.query(Cdn).filter(Cdn.cname == domaindb.cname).first()
-                            if cnamecdn is not None:
-                                domaindb.cname_cdn = cnamecdn.organization
+                            domaindb.cname = cnametld.parsed_url.hostname.split(',')
+                            for cn in domaindb.cname:
+                                cnamecdn = session.query(Cdn).filter(Cdn.cname == cn).first()
+                                if cnamecdn is not None:
+                                    domaindb.cname_cdn.append(cnamecdn.organization)
+                                else:
+                                    domaindb.cname_cdn.append(None)
 
                     if data.domain is not None and data.domain != "":
                         extra_info["domain"] = data.domain

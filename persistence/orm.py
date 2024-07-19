@@ -113,8 +113,8 @@ class Domain(Base):
     host: Mapped[str] = mapped_column(String(512), nullable=False)
     apex_domain: Mapped[str] = mapped_column(String(512), nullable=False)
     subdomain: Mapped[str] = mapped_column(String(512), nullable=True)
-    cname: Mapped[str] = mapped_column(String(512), nullable=True)
-    cname_cdn: Mapped[Union[None, str]] = mapped_column(String(32), nullable=True)
+    cname: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True)
+    cname_cdn: Mapped[[Union[None, str]]] = mapped_column(ARRAY(String), nullable=True)
 
     a: Mapped[[IPv4Address]] = mapped_column(ARRAY(INET()), nullable=True)
     a_cdn: Mapped[[Union[None, str]]] = mapped_column(ARRAY(String(32)), nullable=True)

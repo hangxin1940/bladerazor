@@ -67,9 +67,10 @@ class NmapSearchTool(BaseTool):
                     pdb.version = port.version
                     pdb.checked_time = now
                     pdb.is_passive = False
-                    pdb.extra_info = {
-                        "info": port.extrainfo,
-                    }
+                    if port.extrainfo is not None:
+                        pdb.extra_info = {
+                            "info": port.extrainfo,
+                        }
                     pdb.source = self.name
                     try:
                         session.add(pdb)

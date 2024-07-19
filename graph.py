@@ -7,7 +7,7 @@ from langgraph.graph.graph import CompiledGraph
 from sqlalchemy import and_
 
 from persistence.database import DB
-from persistence.orm import Domain, Port
+from persistence.orm import Domain, Port, WebInfo
 from team import Team
 from config import logger
 
@@ -183,6 +183,11 @@ class TaskNodes:
                         if domain.a_cdn[idx] is None:
                             target = Target(task_id, a)
                             state['targets'].add(target)
+                if domain.cname is not None:
+                    for idx, cname in enumerate(domain.cname):
+                        if domain.cname_cdn[idx] is None:
+                            target = Target(task_id, cname)
+                            state['targets'].add(target)
 
             ports = session.query(Port).filter(
                 and_(
@@ -198,9 +203,31 @@ class TaskNodes:
                     target = Target(task_id, f'{port.service}://{port.ip}:{port.port}', self.db, port.id, Port)
                     state['targets'].add(target)
 
-                if port.extra_info is not None and "domain" in port.extra_info:
-                    target = Target(task_id, port.extra_info["domain"])
-                    state['targets'].add(target)
+                if port.extra_info is not None:
+                    if "domain" in port.extra_info:
+                        target = Target(task_id, port.extra_info["domain"])
+                        state['targets'].add(target)
+                    if "host" in port.extra_info:
+                        target = Target(task_id, port.extra_info["host"])
+                        state['targets'].add(target)
+                    if "cname" in port.extra_info:
+                        for cname in port.extra_info['cname'].split(','):
+                            target = Target(task_id, cname)
+                            state['targets'].add(target)
+                    if "cert" in port.extra_info:
+                        if "subject_cn" in port.extra_info['cert']:
+                            target = Target(task_id, port.extra_info['cert']['subject_cn'])
+                            state['targets'].add(target)
+
+            webinfos = session.query(WebInfo).filter(
+                and_(
+                    WebInfo.task_id == task_id,
+                    WebInfo.ip != None
+                )
+            ).all()
+            for webinfo in webinfos:
+                target = Target(task_id, webinfo.ip)
+                state['targets'].add(target)
 
 
 class WorkFlow:
