@@ -42,6 +42,7 @@ class NmapSearchTool(BaseTool):
         nmap = Nmap(self.nmap_path)
         ip = kwargs.pop('ip')
         ports = kwargs.pop('ports')
+
         now = datetime.now()
         results = []
         openports = []
@@ -55,7 +56,7 @@ class NmapSearchTool(BaseTool):
         try:
             with self.db.DBSession() as session:
                 for port in results:
-                    openports.append(port.portid)
+                    openports.append(f"{port.portid} {port.service}")
                     pdb = Port()
                     pdb.task_id = self.task_id
                     pdb.ip = ip_address(port.ip).exploded
@@ -85,4 +86,4 @@ class NmapSearchTool(BaseTool):
             logger.error("其他错误: {}", e)
             return f"其他错误: {e}"
 
-        return f"共发现{len(openports)}个开放端口\n{','.join(openports)}"
+        return f"IP: {ip} 共发现{len(openports)}个开放端口\n{','.join(openports)}"

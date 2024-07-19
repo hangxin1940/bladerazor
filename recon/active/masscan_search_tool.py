@@ -77,4 +77,4 @@ class MasscanSearchTool(BaseTool):
             logger.error("其他错误: {}", e)
             return f"其他错误: {e}"
 
-        return f"共发现{len(openports)}个开放端口\n{','.join(openports)}"
+        return f"IP: {ip} 共发现{len(openports)}个开放端口\n{','.join(openports)}"
