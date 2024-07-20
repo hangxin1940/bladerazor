@@ -92,9 +92,9 @@ class TaskNodes:
                 try:
                     crew = self.team.cyberAssetsResearchers.reconCrew(target.task_id, target.target)
                     out = crew.kickoff()
-                    logger.info("[{}] {}: {}", target.task_id, target, out)
+                    logger.info("[recon {}] {}: {}", target.task_id, target, out)
                 except Exception as e:
-                    logger.error("[{}] {}: {}", target.task_id, target, e)
+                    logger.error("[recon {}] {}: {}", target.task_id, target, e)
                 target.next_status()
 
         self._padding_new_assets(taskid, state)
@@ -109,11 +109,11 @@ class TaskNodes:
                 try:
                     crew = self.team.cyberAssetsExperts.fingerprintingCrew(target.task_id, target.target)
                     out = crew.kickoff()
-                    logger.info("[{}] {}: {}", target.task_id, target, out)
+                    logger.info("[mapping {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
-                    logger.debug("[{}] {}: {}", target.task_id, target, e)
+                    logger.debug("[mapping {}] {}: {}", target.task_id, target, e)
                 except Exception as e:
-                    logger.error("[{}] {}: {}", target.task_id, target, e)
+                    logger.error("[mapping {}] {}: {}", target.task_id, target, e)
                 target.next_status()
         return state
 
@@ -126,11 +126,11 @@ class TaskNodes:
                 try:
                     crew = self.team.cyberAssetsExperts.vulScanCrew(target.task_id, target.target)
                     out = crew.kickoff()
-                    logger.info("[{}] {}: {}", target.task_id, target, out)
+                    logger.info("[vulscan {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
-                    logger.debug("[{}] {}: {}", target.task_id, target, e)
+                    logger.debug("[vulscan {}] {}: {}", target.task_id, target, e)
                 except Exception as e:
-                    logger.error("[{}] {}: {}", target.task_id, target, e)
+                    logger.error("[vulscan {}] {}: {}", target.task_id, target, e)
             target.next_status()
         return state
 
