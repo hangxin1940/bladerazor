@@ -5,9 +5,11 @@ from crewai import Agent, Task, Crew
 from crewai_tools import BaseTool
 from textwrap import dedent
 
+from helpers.utils import is_domain
 from persistence.database import DB
 from recon.active.masscan_search_tool import MasscanSearchTool
 from recon.active.nmap_search_tool import NmapSearchTool
+from recon.passive.alienvault_search_tool import AlienVaultSearchTool
 from recon.passive.fofa_search_tool import FofaSearchTool
 from recon.passive.security_trails_search_tool import SecurityTrailsSearchTool
 import validators
@@ -253,7 +255,9 @@ class CyberAssetsResearchers:
         )
 
     def _getPassiveReconTools(self, task_id: int) -> []:
-        tools = []
+        tools = [
+            AlienVaultSearchTool(self.db, task_id),
+        ]
         if os.environ.get('FOFA_EMAIL') is not None and os.environ.get('FOFA_API_KEY') is not None:
             tools.append(FofaSearchTool(self.db, task_id))
         if os.environ.get('SECURITYTRAILS_API_KEY') is not None:
@@ -296,7 +300,7 @@ class CyberAssetsResearchers:
             # url
             logger.info("url目标 {}", target)
             return self._reconDomainCrew(task_id, target)
-        elif validators.domain(target):
+        elif is_domain(target, rfc_2782=True):
             # domain
             logger.info("domain目标 {}", target)
             return self._reconDomainCrew(task_id, target)
