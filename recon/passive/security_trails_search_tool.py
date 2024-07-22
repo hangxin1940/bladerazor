@@ -151,6 +151,8 @@ class SecurityTrailsSearchTool(BaseTool):
                     domaindb.host = result.hostname
                     domaindb.subdomain = result.subdomain
                     domaindb.source = self.name
+                    domaindb.cname = []
+                    domaindb.cname_cdn = []
                     domaindb.a = []
                     domaindb.a_cdn = []
                     domaindb.aaaa = []

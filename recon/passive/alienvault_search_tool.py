@@ -3,7 +3,7 @@ from typing import Type, Any
 from pydantic.v1 import BaseModel, Field
 from crewai_tools.tools.base_tool import BaseTool
 from requests import HTTPError
-from sqlalchemy import exc
+from sqlalchemy import exc, and_, func
 
 from helpers.alienvault_api import AlienVaultApi
 from helpers.utils import get_ip_type
@@ -71,6 +71,8 @@ class AlienVaultSearchTool(BaseTool):
                         domaindb.host = vdomain.hostname
                         domaindb.subdomain = vdomain.sub_domain
                         domaindb.source = self.name
+                        domaindb.cname = []
+                        domaindb.cname_cdn = []
                         domaindb.a = []
                         domaindb.a_cdn = []
                         domaindb.aaaa = []
@@ -101,7 +103,12 @@ class AlienVaultSearchTool(BaseTool):
                         for record in vdomain.cname:
                             domaindb.cname = record.split(',')
                             for cn in domaindb.cname:
-                                cnamecdn = session.query(Cdn).filter(Cdn.cname == cn).first()
+                                cnamecdn = session.query(Cdn).filter(
+                                    and_(
+                                        Cdn.cname != None,
+                                        func.lower(cn).ilike(func.concat('%', Cdn.cname))
+                                    )
+                                ).first()
                                 if cnamecdn is not None:
                                     domaindb.cname_cdn.append(cnamecdn.organization)
                                 else:

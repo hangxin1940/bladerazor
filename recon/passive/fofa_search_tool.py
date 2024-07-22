@@ -4,7 +4,7 @@ from ipaddress import ip_address
 from typing import Type, Any
 from pydantic.v1 import BaseModel, Field
 from crewai_tools.tools.base_tool import BaseTool
-from sqlalchemy import exc
+from sqlalchemy import exc, and_, func
 
 from helpers.fofa_api import FofaApi
 from helpers.utils import get_ip_type
@@ -151,7 +151,12 @@ class FofaSearchTool(BaseTool):
                         if domaindb is not None:
                             domaindb.cname = cnametld.parsed_url.hostname.split(',')
                             for cn in domaindb.cname:
-                                cnamecdn = session.query(Cdn).filter(Cdn.cname == cn).first()
+                                cnamecdn = session.query(Cdn).filter(
+                                    and_(
+                                        Cdn.cname != None,
+                                        func.lower(cn).ilike(func.concat('%', Cdn.cname))
+                                    )
+                                ).first()
                                 if cnamecdn is not None:
                                     domaindb.cname_cdn.append(cnamecdn.organization)
                                 else:
