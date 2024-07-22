@@ -108,7 +108,9 @@ class TaskNodes:
         """
         测绘
         """
+        taskid = 0
         for target in state['targets']:
+            taskid = target.task_id
             if target.status == State.MAPPING:
                 try:
                     crew = self.team.cyberAssetsExperts.fingerprintingCrew(target.task_id, target.target)
@@ -119,6 +121,7 @@ class TaskNodes:
                 except Exception as e:
                     logger.error("[mapping {}] {}: {}", target.task_id, target, e)
                 target.next_status()
+        self._padding_new_assets(taskid, state)
         return state
 
     def vulscan(self, state: TaskState):
@@ -166,7 +169,7 @@ class TaskNodes:
         for target in state['targets']:
             if target.status == State.RECON or target.status == State.INIT:
                 return 'recon'
-        return 'mapping'
+        return 'pass'
 
     def _padding_new_assets(self, task_id: int, state: TaskState):
         """
@@ -226,7 +229,8 @@ class TaskNodes:
             webinfos = session.query(WebInfo).filter(
                 and_(
                     WebInfo.task_id == task_id,
-                    WebInfo.ip != None
+                    WebInfo.ip != None,
+                    WebInfo.ip_cdn == None
                 )
             ).all()
             for webinfo in webinfos:
@@ -263,10 +267,18 @@ class WorkFlow:
             path=nodes.edge_shuld_recon,
             path_map={
                 'recon': 'recon',
-                'mapping': 'mapping'
+                'pass': 'mapping'
             }
         )
-        workflow.add_edge('mapping', 'vulscan')
+        workflow.add_conditional_edges(
+            source='mapping',
+            # 条件边, 有新目标则继续侦察
+            path=nodes.edge_shuld_recon,
+            path_map={
+                'recon': 'recon',
+                'pass': 'vulscan'
+            }
+        )
         workflow.add_edge('vulscan', 'exploit')
         workflow.add_edge('exploit', 'finish')
 

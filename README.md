@@ -4,6 +4,9 @@
 
 An AI-Driven Pentesting Solution.
 
+资产侦察工具借鉴了 [OneForAll](https://github.com/shmilylty/OneForAll)
+
+
 ## 使用
 
     # 创建一个 python 3.12 虚拟环境, 你也可以用 virtualenv
@@ -44,11 +47,14 @@ stateDiagram-v2
     state "资产测绘" as AssetMapping
     state "漏扫" as VulScan
     state "漏洞分析与利用" as Exploit
-    state nwe_assets_state <<choice>>
+    state new_recon_assets_state <<choice>>
+    state new_mapping_assets_state <<choice>>
     [*] --> Recon
-    Recon --> nwe_assets_state
-    nwe_assets_state --> Recon: 有新资产
-    nwe_assets_state --> AssetMapping: 无新资产
-    AssetMapping --> VulScan
+    Recon --> new_recon_assets_state
+    new_recon_assets_state --> Recon: 有新资产
+    new_recon_assets_state --> AssetMapping: 无新资产
+    AssetMapping --> new_mapping_assets_state
+    new_mapping_assets_state --> Recon: 有新资产
+    new_mapping_assets_state --> VulScan: 无新资产
     VulScan --> Exploit
 ```
