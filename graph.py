@@ -1,11 +1,15 @@
 from enum import IntEnum
+from urllib.parse import urlparse
 
+import validators
 from langgraph.graph import StateGraph
 from typing import TypedDict, Optional, Any
 
 from langgraph.graph.graph import CompiledGraph
 from sqlalchemy import and_
+from tld import get_tld
 
+from helpers.utils import is_domain
 from persistence.database import DB
 from persistence.orm import Domain, Port, WebInfo
 from team import Team
@@ -273,6 +277,18 @@ class WorkFlow:
             'task_id': taskid,
             'targets': set(),
         }
+
+        if validators.url(target):
+            hu = urlparse(target)
+
+            domain_obj = get_tld(hu.netloc, fail_silently=True, as_object=True, fix_protocol=True)
+            state['targets'].add(Target(taskid, domain_obj.fld))
+
+            state['targets'].add(Target(taskid, hu.netloc))
+
+        elif is_domain(target, rfc_2782=True):
+            domain_obj = get_tld(target, fail_silently=True, as_object=True, fix_protocol=True)
+            state['targets'].add(Target(taskid, domain_obj.fld))
 
         state['targets'].add(Target(taskid, target))
 
