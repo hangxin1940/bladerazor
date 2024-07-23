@@ -70,6 +70,7 @@ class SecurityTrailsSearchTool(BaseTool):
                     for result in results:
                         hostobj = get_tld(result.hostname, fail_silently=True, as_object=True, fix_protocol=True)
                         domaindb = Domain()
+                        domaindb.target = domain
                         domaindb.task_id = self.task_id
                         domaindb.apex_domain = hostobj.fld
                         domaindb.host = result.hostname
@@ -123,6 +124,7 @@ class SecurityTrailsSearchTool(BaseTool):
                 return f"其他错误: {e}"
             return f"共发现{len(results)}个资产"
         try:
+            target = domain
             if fuzzy:
                 if domain == "":
                     return "domain为空。fuzzy参数仅对domain有效"
@@ -132,6 +134,7 @@ class SecurityTrailsSearchTool(BaseTool):
                 logger.info("SecurityTrails查询: {}", domain)
                 results = stapi.search_domain(domain)
             elif ip != "":
+                target = ip
                 logger.info("SecurityTrails查询: {}", ip)
                 results = stapi.search_ip(ip)
             else:
@@ -146,6 +149,7 @@ class SecurityTrailsSearchTool(BaseTool):
             with self.db.DBSession() as session:
                 for result in results:
                     domaindb = Domain()
+                    domaindb.target = target
                     domaindb.task_id = self.task_id
                     domaindb.apex_domain = result.apex_domain
                     domaindb.host = result.hostname

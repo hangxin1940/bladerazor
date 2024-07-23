@@ -58,6 +58,7 @@ class NmapSearchTool(BaseTool):
                 for port in results:
                     openports.append(f"{port.portid} {port.service}")
                     pdb = Port()
+                    pdb.target = ip
                     pdb.task_id = self.task_id
                     pdb.ip = ip_address(port.ip).exploded
                     pdb.protocol = port.protocol

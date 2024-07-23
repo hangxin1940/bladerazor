@@ -71,6 +71,11 @@ class FofaSearchTool(BaseTool):
         fofaapi = FofaApi(os.environ.get('FOFA_EMAIL'), os.environ.get('FOFA_API_KEY'),
                           os.environ.get('FOFA_VERSION', 'base'))
         fuzzy = kwargs.pop('fuzzy', False)
+        target = ""
+        if kwargs.get('domain') is not None:
+            target = kwargs.get('domain')
+        elif kwargs.get('ip') is not None:
+            target = kwargs.get('ip')
         results = []
         try:
             logger.info("FOFA查询: {}", kwargs)
@@ -84,6 +89,7 @@ class FofaSearchTool(BaseTool):
             with self.db.DBSession() as session:
                 for data in results:
                     pdb = Port()
+                    pdb.target = target
                     pdb.task_id = self.task_id
                     pdb.ip = ip_address(data.ip)
 
@@ -106,6 +112,7 @@ class FofaSearchTool(BaseTool):
                         hostobj = get_tld(data.host, fail_silently=True, as_object=True, fix_protocol=True)
                         if hostobj is not None:
                             domaindb = Domain()
+                            domaindb.target = target
                             domaindb.task_id = self.task_id
                             if hostobj.subdomain == "":
                                 domaindb.host = hostobj.fld

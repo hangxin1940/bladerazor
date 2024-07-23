@@ -47,12 +47,13 @@ class AlienVaultSearchTool(BaseTool):
         avapi = AlienVaultApi()
         if domain == "" and ip == "":
             return "domain和ip不能同时为空"
-
+        target = domain
         try:
             if domain != "":
                 logger.info("AlienVault查询: {}", domain)
                 results = avapi.search_domain(domain)
             else:
+                target = ip
                 logger.info("AlienVault查询: {}", ip)
                 results = avapi.search_ipv4(ip)
         except HTTPError as e:
@@ -66,6 +67,7 @@ class AlienVaultSearchTool(BaseTool):
                 for result in results:
                     for vdomain in result.sub_domains.values():
                         domaindb = Domain()
+                        domaindb.target = target
                         domaindb.task_id = self.task_id
                         domaindb.apex_domain = result.apex_domain
                         domaindb.host = vdomain.hostname
