@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, text
 import threading
 
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -11,12 +11,15 @@ class DB(object):
 
     def __init__(self, user: str, password: str, host: str, port: int, dbname: str, echo: bool = False):
         self._engine = create_engine(
-            url=f"postgresql://{user}:{password}@{host}:{port}/{dbname}",
+            url=f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}",
             echo=echo,  # echo 设为 True 会打印出实际执行的 sql，调试的时候更方便
             future=True,  # 使用 SQLAlchemy 2.0 API，向后兼容
             pool_size=5,  # 连接池的大小默认为 5 个，设置为 0 时表示连接无限制
             pool_recycle=3600,  # 设置时间以限制数据库自动断开
         )
+        with self._engine.connect() as conn:
+            conn.execute(text('CREATE EXTENSION IF NOT EXISTS vector'))
+            conn.commit()
         Base.metadata.create_all(self._engine)
         self.DBSession = scoped_session(sessionmaker(bind=self._engine))
         with self.DBSession() as session:

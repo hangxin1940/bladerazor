@@ -2,8 +2,10 @@ import logging
 import os
 
 import opentelemetry.sdk.trace
+from embedchain.embedder.openai import OpenAIEmbedder
 
 from graph import WorkFlow
+from persistence.vectordb import NewEmbedChain
 from team import Team
 
 opentelemetry.sdk.trace.logger.setLevel(logging.CRITICAL)
@@ -32,6 +34,10 @@ if __name__ == '__main__':
         dbname='bladerazor',
         # echo=debug,
     )
+
+    embder = OpenAIEmbedder()
+
+    ragdb = NewEmbedChain(db=db, embder=embder)
 
     target = 'https://www.example.com/'
     print('target', target)

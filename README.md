@@ -28,7 +28,7 @@ An AI-Driven Pentesting Solution.
         -e POSTGRES_PASSWORD=123456 \
         -e POSTGRES_DB=bladerazor \
         -p 15432:5432 \
-        -d postgres:16
+        -d pgvector/pgvector:pg16
 
 ## LLM
 
