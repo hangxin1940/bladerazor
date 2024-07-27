@@ -126,6 +126,7 @@ class PgvectorDB(BaseVectorDB):
 
         try:
             with self.db.DBSession() as session:
+                count = 0
                 for doc, meta, id in to_ingest:
                     kvobj = self.cls_KnowledgeVectors()
                     kvobj.id = id
@@ -133,6 +134,10 @@ class PgvectorDB(BaseVectorDB):
                     kvobj.meta_data = meta
                     kvobj.vector = self.embedder.embedding_fn([doc])[0]
                     session.add(kvobj)
+                    count += 1
+                    if count >= 10:
+                        session.commit()
+                        count = 0
                 session.commit()
         except Exception as e:
             logger.error(e)
