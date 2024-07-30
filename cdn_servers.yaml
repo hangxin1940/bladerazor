@@ -609,6 +609,10 @@ cidr:
     - 129.28.241.0/24
     - 212.64.62.0/24
 
+  # https://ipinfo.io/AS20738
+  hosteurope:
+    - 94.136.40.0/24
+
 cname:
   google:
     - googlehosted.com
