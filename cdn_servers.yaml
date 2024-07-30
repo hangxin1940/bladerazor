@@ -664,10 +664,10 @@ cname:
     - cdn30.com
 
   aliyun-cdn:
-    - w.kunlungr.com
-    - w.cdngslb.com
-    - w.kunlunca.com
-    - w.kunlunsl.com
+    - kunlungr.com
+    - cdngslb.com
+    - kunlunca.com
+    - kunlunsl.com
     - alikunlun.com
     - aliyun-inc.com
     - kunlunpi.com
