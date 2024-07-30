@@ -218,8 +218,9 @@ class TaskNodes:
                 )
             ).all()
             for domain in domains:
-                target = Target(task_id, domain.host, self.db, domain.id, Domain)
-                state['targets'].add(target)
+                if domain.host_cdn is None:
+                    target = Target(task_id, domain.host, self.db, domain.id, Domain)
+                    state['targets'].add(target)
                 if len(domain.a) > 0:
                     for idx, a in enumerate(domain.a):
                         if domain.a_cdn[idx] is None:

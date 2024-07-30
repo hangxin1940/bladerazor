@@ -4,7 +4,7 @@ from ipaddress import ip_address
 from typing import Type, Any
 from pydantic.v1 import BaseModel, Field
 from crewai_tools.tools.base_tool import BaseTool
-from sqlalchemy import exc, and_, func
+from sqlalchemy import exc, and_, func, or_
 
 from helpers.fofa_api import FofaApi
 from helpers.utils import get_ip_type
@@ -120,6 +120,19 @@ class FofaSearchTool(BaseTool):
                                 domaindb.host = hostobj.subdomain + "." + hostobj.fld
                             domaindb.apex_domain = hostobj.fld
                             domaindb.subdomain = hostobj.subdomain
+
+                            hostcdn = session.query(Cdn).filter(
+                                and_(
+                                    Cdn.cname != None,
+                                    or_(
+                                        func.lower(domaindb.host).ilike(func.concat('%', Cdn.cname)),
+                                        func.lower(domaindb.apex_domain).ilike(func.concat('%', Cdn.cname))
+                                    )
+                                )
+                            ).first()
+                            if hostcdn is not None:
+                                domaindb.host_cdn = hostcdn.organization
+
                             if pdb.checked_time is not None:
                                 domaindb.checked_time = pdb.checked_time
                             domaindb.source = self.name

@@ -5,7 +5,7 @@ from typing import Type, Any
 from pydantic.v1 import BaseModel, Field
 from crewai_tools.tools.base_tool import BaseTool
 from requests import HTTPError
-from sqlalchemy import exc
+from sqlalchemy import exc, and_, or_, func
 
 from helpers.security_trails_api import SecurityTrailsApi
 from helpers.utils import get_ip_type
@@ -75,6 +75,19 @@ class SecurityTrailsSearchTool(BaseTool):
                         domaindb.apex_domain = hostobj.fld
                         domaindb.host = result.hostname
                         domaindb.subdomain = hostobj.subdomain
+
+                        hostcdn = session.query(Cdn).filter(
+                            and_(
+                                Cdn.cname != None,
+                                or_(
+                                    func.lower(domaindb.host).ilike(func.concat('%', Cdn.cname)),
+                                    func.lower(domaindb.apex_domain).ilike(func.concat('%', Cdn.cname))
+                                )
+                            )
+                        ).first()
+                        if hostcdn is not None:
+                            domaindb.host_cdn = hostcdn.organization
+
                         domaindb.source = self.name
                         domaindb.cname = []
                         domaindb.cname_cdn = []
@@ -154,6 +167,19 @@ class SecurityTrailsSearchTool(BaseTool):
                     domaindb.apex_domain = result.apex_domain
                     domaindb.host = result.hostname
                     domaindb.subdomain = result.subdomain
+
+                    hostcdn = session.query(Cdn).filter(
+                        and_(
+                            Cdn.cname != None,
+                            or_(
+                                func.lower(domaindb.host).ilike(func.concat('%', Cdn.cname)),
+                                func.lower(domaindb.apex_domain).ilike(func.concat('%', Cdn.cname))
+                            )
+                        )
+                    ).first()
+                    if hostcdn is not None:
+                        domaindb.host_cdn = hostcdn.organization
+
                     domaindb.source = self.name
                     domaindb.cname = []
                     domaindb.cname_cdn = []

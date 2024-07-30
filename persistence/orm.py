@@ -120,6 +120,7 @@ class Domain(Base):
     task = relationship("PenTestTask", back_populates="domains")
     target: Mapped[str] = mapped_column(String(512), nullable=False)
     host: Mapped[str] = mapped_column(String(512), nullable=False)
+    host_cdn: Mapped[str] = mapped_column(String(32), nullable=True)
     apex_domain: Mapped[str] = mapped_column(String(512), nullable=False)
     subdomain: Mapped[str] = mapped_column(String(512), nullable=True)
     cname: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True)
