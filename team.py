@@ -2,6 +2,7 @@ from typing import Optional
 
 from exploits.cybersecurity_expert import CybersecurityExperts
 from persistence.database import DB
+from rag.rag import RAG
 from recon.cyber_assets_researcher import CyberAssetsResearchers
 
 
@@ -13,6 +14,7 @@ class Team:
 
     def __init__(self,
                  db: DB,
+                 rag: RAG,
                  llm,
                  debug: Optional[bool] = None,
                  masscan_path: Optional[str] = None,
@@ -29,6 +31,7 @@ class Team:
 
         self.cyberAssetsExperts = CybersecurityExperts(
             db=db,
+            rag=rag,
             llm=llm,
             nuclei_path=nuclei_path,
             templates_path=nuclei_templates_path,
@@ -47,8 +50,14 @@ class Team:
         """
         return self.cyberAssetsExperts.fingerprintingCrew(task_id, target)
 
+    def get_vulscan_crew(self, task_id: int, target: str):
+        """
+        获取漏扫队伍
+        """
+        return self.cyberAssetsExperts.vulScanCrew(task_id, target)
+
     def get_exploit_crew(self, task_id: int, target: str):
         """
         获取打点队伍
         """
-        return self.cyberAssetsExperts.vulScanCrew(task_id, target)
+        return self.cyberAssetsExperts.establishingFootholdResearchCrew(target)

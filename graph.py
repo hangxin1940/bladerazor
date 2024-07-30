@@ -6,12 +6,12 @@ from langgraph.graph import StateGraph
 from typing import TypedDict, Optional, Any
 
 from langgraph.graph.graph import CompiledGraph
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from tld import get_tld
 
 from helpers.utils import is_domain
 from persistence.database import DB
-from persistence.orm import Domain, Port, WebInfo
+from persistence.orm import Domain, Port, WebInfo, Vul
 from team import Team
 from config import logger
 
@@ -21,7 +21,6 @@ class State(IntEnum):
     RECON = 1  # 侦察
     MAPPING = 2  # 测绘
     VULSCAN = 3  # 漏扫
-    EXPLOIT = 4  # 利用
     FINISH = 99  # 结束
 
 
@@ -51,8 +50,6 @@ class Target:
         elif self.status == State.MAPPING:
             self.status = State.VULSCAN
         elif self.status == State.VULSCAN:
-            self.status = State.EXPLOIT
-        elif self.status == State.EXPLOIT:
             self.status = State.FINISH
 
         if self.db is not None and self.orm_id > 0 and self.orm_class is not None:
@@ -145,11 +142,18 @@ class TaskNodes:
         """
         漏洞利用
         """
-        for target in state['targets']:
-            if target.status == State.EXPLOIT:
+        datas = self._assets_intelligence(state['task_id'])
+        for target, data in datas.items():
+            try:
+                datastr = f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}"
                 # TODO
-                print("#TODO exploit", target)
-                target.next_status()
+                crew = self.team.get_exploit_crew(state['task_id'], datastr)
+                out = crew.kickoff()
+                logger.info("[exploit {}]\n{}", state['task_id'], out)
+            except ValueError as e:
+                logger.debug("[exploit {}]\n{}", state['task_id'], e)
+            except Exception as e:
+                logger.error("[exploit {}]\n{}", state['task_id'], e)
         return state
 
     def finish(self, state: TaskState):
@@ -170,6 +174,37 @@ class TaskNodes:
             if target.status == State.RECON or target.status == State.INIT:
                 return 'recon'
         return 'pass'
+
+    def _assets_intelligence(self, task_id: int) -> dict[str, [str]]:
+        """
+        获取已探明的资产
+        """
+        datas = {}
+        with self.db.DBSession() as session:
+            infos = session.query(WebInfo).filter(
+                and_(
+                    WebInfo.task_id == task_id,
+                    WebInfo.finger_prints != None,
+                    func.jsonb_array_length(WebInfo.finger_prints) >= 1
+                )
+            ).all()
+            for info in infos:
+                if info.target not in datas:
+                    datas[info.target] = []
+                datas[info.target].append(info.to_prompt_template())
+
+            vuls = session.query(Vul).filter(Vul.task_id == task_id).all()
+            for vul in vuls:
+                if vul.target not in datas:
+                    datas[vul.target] = []
+                datas[vul.target].append(vul.to_prompt_template())
+
+            ports = session.query(Port).filter(Vul.task_id == task_id).all()
+            for port in ports:
+                if port.ip not in datas:
+                    datas[port.ip] = []
+                datas[port.ip].append(port.to_prompt_template())
+        return datas
 
     def _padding_new_assets(self, task_id: int, state: TaskState):
         """

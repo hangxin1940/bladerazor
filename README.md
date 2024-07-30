@@ -46,7 +46,8 @@ stateDiagram-v2
     state "资产侦察" as Recon
     state "资产测绘" as AssetMapping
     state "漏扫" as VulScan
-    state "漏洞分析与利用" as Exploit
+    state "攻击面分析" as AttackSurfaceResearch
+    state "打点" as EstablishingFoothold
     state new_recon_assets_state <<choice>>
     state new_mapping_assets_state <<choice>>
     [*] --> Recon
@@ -56,5 +57,6 @@ stateDiagram-v2
     AssetMapping --> new_mapping_assets_state
     new_mapping_assets_state --> Recon: 有新资产
     new_mapping_assets_state --> VulScan: 无新资产
-    VulScan --> Exploit
+    VulScan --> AttackSurfaceResearch
+    AttackSurfaceResearch --> EstablishingFoothold
 ```

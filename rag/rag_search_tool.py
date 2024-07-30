@@ -9,7 +9,7 @@ from config import logger
 
 class RagSearchToolSchema(BaseModel):
     """RagSearchTool 的查询参数"""
-    search_query: str = Field(..., description="搜索的内容")
+    search_query: str = Field(..., description="搜索的内容，问题应当具有代表性，使用实体关键词，避免使用自然语言")
 
 
 class RagSearchTool(BaseTool):

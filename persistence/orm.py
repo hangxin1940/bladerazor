@@ -1,6 +1,7 @@
 import hashlib
 from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
+from textwrap import dedent
 from typing import Union
 
 from psycopg2._psycopg import AsIs
@@ -92,6 +93,12 @@ class Port(Base):
                f"protocol={self.protocol!r}, service={self.service!r}, product={self.product!r}, version={self.version!r}, " \
                f"extra_info={self.extra_info!r}, source={self.source!r}, created={self.created!r}, " \
                f"checked_time={self.checked_time!r})"
+
+    def to_prompt_template(self):
+        return dedent(
+            f"""
+            端口: {self.port} 协议: {self.protocol} 服务类型: {self.service if self.service is not None else ""} 产品: {self.product if self.product is not None else ""} 版本: {self.version if self.version is not None else ""}
+            """)
 
 
 @event.listens_for(Port, 'before_insert')
@@ -217,6 +224,19 @@ class WebInfo(Base):
                f"favicons={self.favicons!r}, body={self.body!r}, finger_prints={self.finger_prints!r}, " \
                f"created={self.created!r}"
 
+    def to_prompt_template(self):
+        fps = set()
+        for fp in self.finger_prints:
+            fps.add(fp['name'])
+
+        fptxt = ", ".join(fps)
+
+        return dedent(
+            f"""
+            url: {self.url}
+            指纹特征: {fptxt}
+            """)
+
 
 @event.listens_for(WebInfo, 'before_insert')
 def before_insert_web_info(mapper, connection, target):
@@ -265,6 +285,27 @@ class Vul(Base):
                f"solution={self.solution!r}, cve_id={self.cve_id!r}, cwe_id={self.cwe_id!r}, cnvd_id={self.cnvd_id!r}, " \
                f"severity={self.severity!r}, description={self.description!r}, extra_info={self.extra_info!r}, " \
                f"source={self.source!r}, created={self.created!r}"
+
+    def to_prompt_template(self):
+        cve = "CVE编号: " + ", ".join(self.cve_id) if self.cve_id else ""
+        cwe = "CWE编号: " + ", ".join(self.cwe_id) if self.cwe_id else ""
+        cnvd = "CNVD编号: " + ", ".join(self.cnvd_id) if self.cnvd_id else ""
+
+        tool = ""
+        if self.source == "Nuclei":
+            if self.extra_info and "curl" in self.extra_info:
+                tool = "利用方式: `" + self.extra_info["curl"] + "`"
+
+        return dedent(
+            f"""
+            利用点: `{self.vul_point}`
+            说明: {self.vul_name} {self.description if self.description else ""}
+            严重程度: {self.severity}
+            {tool}
+            {cve}
+            {cwe}
+            {cnvd}
+            """)
 
 
 @event.listens_for(Vul, 'before_insert')
