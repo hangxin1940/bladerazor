@@ -3,17 +3,20 @@ import os
 
 import opentelemetry.sdk.trace
 from embedchain.embedder.openai import OpenAIEmbedder
+from sqlalchemy import func, and_
 
+from exploits.attack_surface_research import AttackSurfaceResearch
 from graph import WorkFlow
 from persistence.vectordb import NewEmbedChain
+from rag.rag import RAG
+from rag.rag_search_tool import RagSearchTool
 from team import Team
 
 opentelemetry.sdk.trace.logger.setLevel(logging.CRITICAL)
 from langchain_openai import ChatOpenAI
 
-from exploits.cybersecurity_expert import CybersecurityExperts
 from persistence.database import DB
-from persistence.orm import PenTestTask
+from persistence.orm import PenTestTask, Vul, WebInfo, Port
 from recon.cyber_assets_researcher import CyberAssetsResearchers
 
 if __name__ == '__main__':
@@ -37,7 +40,9 @@ if __name__ == '__main__':
 
     embder = OpenAIEmbedder()
 
-    ragdb = NewEmbedChain(db=db, embder=embder)
+    rag = RAG(db=db, embder=embder)
+
+    # ragtool = RagSearchTool(rag)
 
     target = 'https://www.example.com/'
     print('target', target)
@@ -68,21 +73,60 @@ if __name__ == '__main__':
     # assets = crew.kickoff()
     # print(assets)
 
-    # cyberAssetsExperts = CybersecurityExperts(
+    # vulScanExpert = VulScanExpert(
     #     db=db,
     #     llm=llm,
     #     nuclei_path=os.environ['NUCLEI_PATH'],
     #     templates_path=os.environ['NUCLEI_TEMPLATES_PATH'],
     #     verbose=debug
     # )
+
+    # attackSurfaceResearch = AttackSurfaceResearch(
+    #     db=db,
+    #     rag=rag,
+    #     llm=llm,
+    #     verbose=debug
+    # )
     #
-    # crew = cyberAssetsExperts.vulScanCrew(task_id, target)
+    # datas = {}
+    # with db.DBSession() as session:
+    #     infos = session.query(WebInfo).filter(
+    #         and_(
+    #             WebInfo.task_id == 1,
+    #             WebInfo.finger_prints != None,
+    #             func.jsonb_array_length(WebInfo.finger_prints) >= 1
+    #         )
+    #     ).all()
+    #     for info in infos:
+    #         if info.target not in datas:
+    #             datas[info.target] = []
+    #         datas[info.target].append(info.to_prompt_template())
     #
-    # vuls = crew.kickoff()
+    #     vuls = session.query(Vul).filter(Vul.task_id == 1).all()
+    #     for vul in vuls:
+    #         if vul.target not in datas:
+    #             datas[vul.target] = []
+    #         datas[vul.target].append(vul.to_prompt_template())
+    #
+    #     ports = session.query(Port).filter(Port.task_id == 1).all()
+    #     for port in ports:
+    #         if port.ip not in datas:
+    #             datas[port.ip] = []
+    #         datas[port.ip].append(port.to_prompt_template())
+    #
+    # attacks = []
+    # for target, data in datas.items():
+    #     datastr = f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}"
+    #     crew = attackSurfaceResearch.establishingFootholdResearchCrew(datastr)
+    #
+    #     vuls = crew.kickoff()
+    #     attacks.append(vuls)
+    #
     # print(vuls)
 
     team = Team(
         db=db,
+        rag=rag,
         llm=llm,
         debug=debug,
         nmap_path=os.getenv('NMAP_PATH'),

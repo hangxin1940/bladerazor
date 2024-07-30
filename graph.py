@@ -110,7 +110,7 @@ class TaskNodes:
             taskid = target.task_id
             if target.status == State.MAPPING:
                 try:
-                    crew = self.team.cyberAssetsExperts.fingerprintingCrew(target.task_id, target.target)
+                    crew = self.team.vulScanExpert.fingerprintingCrew(target.task_id, target.target)
                     out = crew.kickoff()
                     logger.info("[mapping {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
@@ -128,7 +128,7 @@ class TaskNodes:
         for target in state['targets']:
             if target.status == State.VULSCAN:
                 try:
-                    crew = self.team.cyberAssetsExperts.vulScanCrew(target.task_id, target.target)
+                    crew = self.team.vulScanExpert.vulScanCrew(target.task_id, target.target)
                     out = crew.kickoff()
                     logger.info("[vulscan {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
@@ -147,7 +147,7 @@ class TaskNodes:
             try:
                 datastr = f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}"
                 # TODO
-                crew = self.team.get_exploit_crew(state['task_id'], datastr)
+                crew = self.team.get_establishing_foothold_research_crew(datastr)
                 out = crew.kickoff()
                 logger.info("[exploit {}]\n{}", state['task_id'], out)
             except ValueError as e:
@@ -199,7 +199,7 @@ class TaskNodes:
                     datas[vul.target] = []
                 datas[vul.target].append(vul.to_prompt_template())
 
-            ports = session.query(Port).filter(Vul.task_id == task_id).all()
+            ports = session.query(Port).filter(Port.task_id == task_id).all()
             for port in ports:
                 if port.ip not in datas:
                     datas[port.ip] = []

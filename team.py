@@ -1,6 +1,7 @@
 from typing import Optional
 
-from exploits.cybersecurity_expert import CybersecurityExperts
+from exploits.attack_surface_research import AttackSurfaceResearch
+from exploits.vul_scan_expert import VulScanExpert
 from persistence.database import DB
 from rag.rag import RAG
 from recon.cyber_assets_researcher import CyberAssetsResearchers
@@ -10,7 +11,8 @@ class Team:
     """团队"""
 
     cyberAssetsResearchers: CyberAssetsResearchers | None = None
-    cyberAssetsExperts: CybersecurityExperts | None = None
+    vulScanExpert: VulScanExpert | None = None
+    attackSurfaceResearch: AttackSurfaceResearch | None = None
 
     def __init__(self,
                  db: DB,
@@ -29,12 +31,18 @@ class Team:
             verbose=debug
         )
 
-        self.cyberAssetsExperts = CybersecurityExperts(
+        self.vulScanExpert = VulScanExpert(
             db=db,
-            rag=rag,
             llm=llm,
             nuclei_path=nuclei_path,
             templates_path=nuclei_templates_path,
+            verbose=debug
+        )
+
+        self.attackSurfaceResearch = AttackSurfaceResearch(
+            db=db,
+            rag=rag,
+            llm=llm,
             verbose=debug
         )
 
@@ -48,16 +56,16 @@ class Team:
         """
         获取测绘队伍
         """
-        return self.cyberAssetsExperts.fingerprintingCrew(task_id, target)
+        return self.vulScanExpert.fingerprintingCrew(task_id, target)
 
     def get_vulscan_crew(self, task_id: int, target: str):
         """
         获取漏扫队伍
         """
-        return self.cyberAssetsExperts.vulScanCrew(task_id, target)
+        return self.vulScanExpert.vulScanCrew(task_id, target)
 
-    def get_exploit_crew(self, task_id: int, target: str):
+    def get_establishing_foothold_research_crew(self, target: str):
         """
-        获取打点队伍
+        获取攻击面研究队伍
         """
-        return self.cyberAssetsExperts.establishingFootholdResearchCrew(target)
+        return self.attackSurfaceResearch.establishingFootholdResearchCrew(target)
