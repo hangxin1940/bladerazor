@@ -12,6 +12,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, relationship, Session
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm.attributes import flag_modified
 
 from helpers.crawler import Favicon
 from helpers.fingers import MatchItem
@@ -38,6 +39,42 @@ class DuplicateException(Exception):
 
 class Base(DeclarativeBase):
     pass
+
+
+def update_assets_associate_cdn(session, ip, cdn):
+    domains = session.query(Domain).filter(Domain.a.any(ip)).all()
+    for domain in domains:
+        modified = False
+        for index, fip in enumerate(domain.a):
+            if domain.a_cdn[index] is None and fip == ip:
+                domain.a_cdn[index] = cdn
+                modified = True
+        if modified:
+            flag_modified(domain, "a_cdn")
+    session.commit()
+
+    domains = session.query(Domain).filter(Domain.aaaa.any(ip)).all()
+    for domain in domains:
+        modified = False
+        for index, fip in enumerate(domain.aaaa):
+            if domain.aaaa_cdn[index] is None and fip == ip:
+                domain.aaaa_cdn[index] = cdn
+                modified = True
+        if modified:
+            flag_modified(domain, "aaaa_cdn")
+    session.commit()
+
+    ports = session.query(Port).filter(Port.ip == ip).all()
+    for port in ports:
+        if port.ip_cdn is None:
+            port.ip_cdn = cdn
+    session.commit()
+
+    infos = session.query(WebInfo).filter(WebInfo.ip == ip).all()
+    for info in infos:
+        if info.ip_cdn is None:
+            info.ip_cdn = cdn
+    session.commit()
 
 
 class PenTestTask(Base):
@@ -100,6 +137,15 @@ class Port(Base):
             端口: {self.port} 协议: {self.protocol} 服务类型: {self.service if self.service is not None else ""} 产品: {self.product if self.product is not None else ""} 版本: {self.version if self.version is not None else ""}
             """)
 
+    def associate_cdn(self):
+        """
+        关联cdn
+        """
+        cdns = {}
+        if self.ip_cdn is not None:
+            cdns[self.ip] = self.ip_cdn
+        return cdns
+
 
 @event.listens_for(Port, 'before_insert')
 def before_insert_port(mapper, connection, target):
@@ -159,6 +205,31 @@ class Domain(Base):
                f"aaaa={self.aaaa!r}, aaaa_cdn={self.aaaa_cdn!r}, mx={self.mx!r}, ns={self.ns!r}, soa={self.soa!r}, " \
                f"txt={self.txt!r}, extra_info={self.extra_info!r}, source={self.source!r}, created={self.created!r}, " \
                f"checked_time={self.checked_time!r}, first_seen={self.first_seen!r}, last_seen={self.last_seen!r})"
+
+    def associate_cdn(self):
+        """
+        关联cdn
+        """
+        cdns = {}
+        if len(self.cname_cdn) > 0 and (len(self.a) or len(self.aaaa) > 0):
+            for index, fip in enumerate(self.a):
+                if self.a_cdn[index] is None:
+                    cdns[fip] = self.cname_cdn[0]
+                else:
+                    cdns[fip] = self.a_cdn[0]
+
+            for index, fip in enumerate(self.aaaa):
+                if self.aaaa_cdn[index] is None:
+                    cdns[fip] = self.cname_cdn[0]
+                else:
+                    cdns[fip] = self.aaaa_cdn[0]
+
+        if self.host_cdn is not None:
+            for ip in self.a:
+                cdns[ip] = self.host_cdn
+            for ip in self.aaaa:
+                cdns[ip] = self.host_cdn
+        return cdns
 
 
 @event.listens_for(Domain, 'before_insert')

@@ -8,7 +8,7 @@ from sqlalchemy import exc, and_, func, or_
 from helpers.alienvault_api import AlienVaultApi
 from helpers.utils import get_ip_type
 from persistence.database import DB
-from persistence.orm import Domain, Cdn, DuplicateException
+from persistence.orm import Domain, Cdn, DuplicateException, update_assets_associate_cdn
 from config import logger
 
 
@@ -63,6 +63,7 @@ class AlienVaultSearchTool(BaseTool):
         if len(results) == 0:
             return "未发现资产"
         try:
+            cdns = {}
             with self.db.DBSession() as session:
                 for result in results:
                     for vdomain in result.sub_domains.values():
@@ -102,6 +103,8 @@ class AlienVaultSearchTool(BaseTool):
                             domaindb.a.append(ipobj)
                             if ipcdn is not None:
                                 domaindb.a_cdn.append(ipcdn.organization)
+                            elif domaindb.host_cdn is not None:
+                                domaindb.a_cdn.append(domaindb.host_cdn)
                             else:
                                 domaindb.a_cdn.append(None)
 
@@ -111,6 +114,8 @@ class AlienVaultSearchTool(BaseTool):
                             domaindb.aaaa.append(ipobj)
                             if ipcdn is not None:
                                 domaindb.aaaa_cdn.append(ipcdn.organization)
+                            elif domaindb.host_cdn is not None:
+                                domaindb.aaaa_cdn.append(domaindb.host_cdn)
                             else:
                                 domaindb.aaaa_cdn.append(None)
 
@@ -140,10 +145,18 @@ class AlienVaultSearchTool(BaseTool):
                         try:
                             session.add(domaindb)
                             session.commit()
+
+                            acdns = domaindb.associate_cdn()
+                            cdns.update(acdns)
+
                         except DuplicateException:
                             session.rollback()
                         except Exception:
                             raise
+            if len(cdns) > 0:
+                with self.db.DBSession() as session:
+                    for ip, cdn in cdns.items():
+                        update_assets_associate_cdn(session, ip, cdn)
 
         except exc.SQLAlchemyError as e:
             logger.error("数据库错误: {}", e)
