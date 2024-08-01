@@ -11,12 +11,12 @@ from tld import get_tld
 
 from helpers.utils import is_domain
 from persistence.database import DB
-from persistence.orm import Domain, Port, WebInfo, Vul
+from persistence.orm import Domain, Port, WebInfo
 from team import Team
 from config import logger
 
 
-class State(IntEnum):
+class StatePreAttack(IntEnum):
     INIT = 0  # 初始化
     RECON = 1  # 侦察
     MAPPING = 2  # 测绘
@@ -31,7 +31,7 @@ class Target:
         self.orm_class = orm_class
         self.task_id = task_id
         self.target = target
-        self.status = State.INIT
+        self.status = StatePreAttack.INIT
 
     def __repr__(self):
         return f'{self.status} {self.task_id}: {self.target}'
@@ -43,14 +43,14 @@ class Target:
         return hash((self.task_id, self.target))
 
     def next_status(self):
-        if self.status == State.INIT:
-            self.status = State.RECON
-        elif self.status == State.RECON:
-            self.status = State.MAPPING
-        elif self.status == State.MAPPING:
-            self.status = State.VULSCAN
-        elif self.status == State.VULSCAN:
-            self.status = State.FINISH
+        if self.status == StatePreAttack.INIT:
+            self.status = StatePreAttack.RECON
+        elif self.status == StatePreAttack.RECON:
+            self.status = StatePreAttack.MAPPING
+        elif self.status == StatePreAttack.MAPPING:
+            self.status = StatePreAttack.VULSCAN
+        elif self.status == StatePreAttack.VULSCAN:
+            self.status = StatePreAttack.FINISH
 
         if self.db is not None and self.orm_id > 0 and self.orm_class is not None:
             with self.db.DBSession() as session:
@@ -59,12 +59,12 @@ class Target:
                 session.commit()
 
 
-class TaskState(TypedDict):
+class TaskStatePreAttack(TypedDict):
     task_id: int
     targets: set[Target]
 
 
-class TaskNodes:
+class TaskNodesPreAttack:
     team: Team | None = None
     db: DB | None = None
 
@@ -72,7 +72,7 @@ class TaskNodes:
         self.db = db
         self.team = team
 
-    def init_task(self, state: TaskState):
+    def init_task(self, state: TaskStatePreAttack):
         """
         初始化任务
         """
@@ -80,16 +80,15 @@ class TaskNodes:
             target.next_status()
         return state
 
-    def recon(self, state: TaskState):
+    def recon(self, state: TaskStatePreAttack):
         """
         侦察目标
         """
-        taskid = 0
         for target in state['targets']:
             taskid = target.task_id
-            if target.status == State.INIT:
+            if target.status == StatePreAttack.INIT:
                 target.next_status()
-            if target.status == State.RECON:
+            if target.status == StatePreAttack.RECON:
                 try:
                     crew = self.team.cyberAssetsResearchers.reconCrew(target.task_id, target.target)
                     out = crew.kickoff()
@@ -98,17 +97,16 @@ class TaskNodes:
                     logger.error("[recon {}] {}: {}", target.task_id, target, e)
                 target.next_status()
 
-        self._padding_new_assets(taskid, state)
+        self._padding_new_assets(state["task_id"], state)
         return state
 
-    def mapping(self, state: TaskState):
+    def mapping(self, state: TaskStatePreAttack):
         """
         测绘
         """
-        taskid = 0
         for target in state['targets']:
             taskid = target.task_id
-            if target.status == State.MAPPING:
+            if target.status == StatePreAttack.MAPPING:
                 try:
                     crew = self.team.vulScanExpert.fingerprintingCrew(target.task_id, target.target)
                     out = crew.kickoff()
@@ -118,15 +116,60 @@ class TaskNodes:
                 except Exception as e:
                     logger.error("[mapping {}] {}: {}", target.task_id, target, e)
                 target.next_status()
-        self._padding_new_assets(taskid, state)
+        self._padding_new_assets(state["task_id"], state)
         return state
 
-    def vulscan(self, state: TaskState):
+    def port_scan(self, state: TaskStatePreAttack):
+        """
+        端口扫描
+        """
+        # 获取所有ip资源
+        allips = set()
+        with self.db.DBSession() as session:
+            domains = session.query(Domain).filter(
+                and_(
+                    Domain.task_id == state["task_id"],
+                )
+            ).all()
+            for domain in domains:
+                if len(domain.a) > 0:
+                    for idx, a in enumerate(domain.a):
+                        if domain.a_cdn[idx] is None:
+                            allips.add(a)
+
+            ports = session.query(Port).filter(
+                and_(
+                    Port.task_id == state["task_id"],
+                    Port.ip_cdn == None
+                )
+            ).all()
+            for port in ports:
+                allips.add(port.ip)
+
+            webinfos = session.query(WebInfo).filter(
+                and_(
+                    WebInfo.task_id == state["task_id"],
+                    WebInfo.ip != None,
+                    WebInfo.ip_cdn == None
+                )
+            ).all()
+            for webinfo in webinfos:
+                allips.add(webinfo.ip)
+
+        for ip in allips:
+            try:
+                self.team.cyberAssetsResearchers.portScanCrew(state["task_id"], ip)
+            except Exception as e:
+                logger.error("[port_scan {}] {}: {}", state["task_id"], ip, e)
+
+        return state
+
+    def vulscan(self, state: TaskStatePreAttack):
         """
         漏扫
         """
         for target in state['targets']:
-            if target.status == State.VULSCAN:
+            if target.status == StatePreAttack.VULSCAN:
                 try:
                     crew = self.team.vulScanExpert.vulScanCrew(target.task_id, target.target)
                     out = crew.kickoff()
@@ -138,7 +181,7 @@ class TaskNodes:
             target.next_status()
         return state
 
-    def exploit(self, state: TaskState):
+    def exploit(self, state: TaskStatePreAttack):
         """
         漏洞利用
         """
@@ -156,7 +199,7 @@ class TaskNodes:
                 logger.error("[exploit {}]\n{}", state['task_id'], e)
         return state
 
-    def finish(self, state: TaskState):
+    def finish(self, state: TaskStatePreAttack):
         """
         结束任务
         """
@@ -165,48 +208,17 @@ class TaskNodes:
             print('finish', target)
         return state
 
-    def edge_shuld_recon(self, state: TaskState):
+    def edge_shuld_recon(self, state: TaskStatePreAttack):
         """
         条件边
         """
 
         for target in state['targets']:
-            if target.status == State.RECON or target.status == State.INIT:
+            if target.status == StatePreAttack.RECON or target.status == StatePreAttack.INIT:
                 return 'recon'
         return 'pass'
 
-    def _assets_intelligence(self, task_id: int) -> dict[str, [str]]:
-        """
-        获取已探明的资产
-        """
-        datas = {}
-        with self.db.DBSession() as session:
-            infos = session.query(WebInfo).filter(
-                and_(
-                    WebInfo.task_id == task_id,
-                    WebInfo.finger_prints != None,
-                    func.jsonb_array_length(WebInfo.finger_prints) >= 1
-                )
-            ).all()
-            for info in infos:
-                if info.target not in datas:
-                    datas[info.target] = []
-                datas[info.target].append(info.to_prompt_template())
-
-            vuls = session.query(Vul).filter(Vul.task_id == task_id).all()
-            for vul in vuls:
-                if vul.target not in datas:
-                    datas[vul.target] = []
-                datas[vul.target].append(vul.to_prompt_template())
-
-            ports = session.query(Port).filter(Port.task_id == task_id).all()
-            for port in ports:
-                if port.ip not in datas:
-                    datas[port.ip] = []
-                datas[port.ip].append(port.to_prompt_template())
-        return datas
-
-    def _padding_new_assets(self, task_id: int, state: TaskState):
+    def _padding_new_assets(self, task_id: int, state: TaskStatePreAttack):
         """
         获取新资产以进一步侦察
         """
@@ -214,7 +226,7 @@ class TaskNodes:
             domains = session.query(Domain).filter(
                 and_(
                     Domain.task_id == task_id,
-                    Domain.task_state.in_((State.INIT, State.RECON))
+                    Domain.task_state.in_((StatePreAttack.INIT, StatePreAttack.RECON))
                 )
             ).all()
             for domain in domains:
@@ -235,7 +247,7 @@ class TaskNodes:
             ports = session.query(Port).filter(
                 and_(
                     Port.task_id == task_id,
-                    Port.task_state == State.INIT,
+                    Port.task_state == StatePreAttack.INIT,
                     Port.ip_cdn == None
                 )
             ).all()
@@ -274,7 +286,7 @@ class TaskNodes:
                 state['targets'].add(target)
 
 
-class WorkFlow:
+class WorkFlowPreAttack:
     app: CompiledGraph | None = None
     debug: bool = False
     team: Team | None = None
@@ -284,13 +296,13 @@ class WorkFlow:
         self.db = db
         self.team = team
 
-        nodes = TaskNodes(db, team)
-        workflow = StateGraph(TaskState)
+        nodes = TaskNodesPreAttack(db, team)
+        workflow = StateGraph(TaskStatePreAttack)
         workflow.add_node('init_task', nodes.init_task)
         workflow.add_node('recon', nodes.recon)
         workflow.add_node('mapping', nodes.mapping)
+        workflow.add_node('port_scan', nodes.port_scan)
         workflow.add_node('vulscan', nodes.vulscan)
-        workflow.add_node('exploit', nodes.exploit)
         workflow.add_node('finish', nodes.finish)
 
         workflow.set_entry_point('init_task')
@@ -312,11 +324,11 @@ class WorkFlow:
             path=nodes.edge_shuld_recon,
             path_map={
                 'recon': 'recon',
-                'pass': 'vulscan'
+                'pass': 'port_scan'
             }
         )
-        workflow.add_edge('vulscan', 'exploit')
-        workflow.add_edge('exploit', 'finish')
+        workflow.add_edge('port_scan', 'vulscan')
+        workflow.add_edge('vulscan', 'finish')
 
         self.app = workflow.compile(debug=debug)
 

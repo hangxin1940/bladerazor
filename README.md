@@ -40,14 +40,13 @@ An AI-Driven Pentesting Solution.
 
 ```mermaid
 ---
-title: 智能代理工作流程
+title: 预攻击阶段
 ---
 stateDiagram-v2
     state "资产侦察" as Recon
     state "资产测绘" as AssetMapping
+    state "端口扫描" as PortScan
     state "漏扫" as VulScan
-    state "攻击面分析" as AttackSurfaceResearch
-    state "打点" as EstablishingFoothold
     state new_recon_assets_state <<choice>>
     state new_mapping_assets_state <<choice>>
     [*] --> Recon
@@ -56,7 +55,28 @@ stateDiagram-v2
     new_recon_assets_state --> AssetMapping: 无新资产
     AssetMapping --> new_mapping_assets_state
     new_mapping_assets_state --> Recon: 有新资产
-    new_mapping_assets_state --> VulScan: 无新资产
-    VulScan --> AttackSurfaceResearch
-    AttackSurfaceResearch --> EstablishingFoothold
+    new_mapping_assets_state --> PortScan: 无新资产
+    PortScan --> VulScan
+    VulScan --> [*]
+```
+
+
+```mermaid
+---
+title: 攻击阶段
+---
+stateDiagram-v2
+    state "攻击面分析" as AttackSurfaceResearch
+    state "打点研究" as EstablishingFootholdResearch
+    state "审核攻击计划" as AttackPlanReview
+    state "部署并实施攻击" as DeployAndExecuteTheAttack
+    state attack_plan_review_state <<choice>>
+    [*] --> AttackSurfaceResearch
+    AttackSurfaceResearch --> EstablishingFootholdResearch
+    EstablishingFootholdResearch --> AttackPlanReview
+    AttackPlanReview --> attack_plan_review_state
+    attack_plan_review_state --> EstablishingFootholdResearch: 重做
+    attack_plan_review_state --> [*]: 否决
+    attack_plan_review_state --> DeployAndExecuteTheAttack: 通过
+    DeployAndExecuteTheAttack --> [*]
 ```

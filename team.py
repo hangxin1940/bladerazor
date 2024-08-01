@@ -69,3 +69,9 @@ class Team:
         获取攻击面研究队伍
         """
         return self.attackSurfaceResearch.establishingFootholdResearchCrew(target)
+
+    def get_attack_plan_review_crew(self, assets: str, plan: str, review: str | None = None):
+        """
+        获取攻击计划审核队伍
+        """
+        return self.attackSurfaceResearch.attackPlanReviewCrew(assets, plan, review)

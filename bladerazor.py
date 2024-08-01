@@ -6,7 +6,8 @@ from embedchain.embedder.openai import OpenAIEmbedder
 from sqlalchemy import func, and_
 
 from exploits.attack_surface_research import AttackSurfaceResearch
-from graph import WorkFlow
+from work_flow_attack import WorkFlowAttack
+from work_flow_pre_attack import WorkFlowPreAttack
 from persistence.vectordb import NewEmbedChain
 from rag.rag import RAG
 from rag.rag_search_tool import RagSearchTool
@@ -44,17 +45,17 @@ if __name__ == '__main__':
 
     # ragtool = RagSearchTool(rag)
 
-    target = 'https://www.example.com/'
-    print('target', target)
-    # task_id = 1
-    with db.DBSession() as session:
-        task = PenTestTask()
-        task.target = target
-        task.name = target
-        session.add(task)
-        session.commit()
-        task_id = task.id
-
+    # target = 'https://www.example.com/'
+    # print('target', target)
+    # # task_id = 1
+    # with db.DBSession() as session:
+    #     task = PenTestTask()
+    #     task.target = target
+    #     task.name = target
+    #     session.add(task)
+    #     session.commit()
+    #     task_id = task.id
+    #
     llm = ChatOpenAI(
         temperature=0.8,
         # max_tokens=16385,
@@ -134,9 +135,17 @@ if __name__ == '__main__':
         nuclei_templates_path=os.environ['NUCLEI_TEMPLATES_PATH'],
     )
 
-    workflow = WorkFlow(
+    # workflow = WorkFlowPreAttack(
+    #     db=db,
+    #     team=team,
+    #     debug=debug
+    # )
+    # workflow.run(task_id, target)
+
+    workflowAttack = WorkFlowAttack(
         db=db,
         team=team,
         debug=debug
     )
-    workflow.run(task_id, target)
+
+    workflowAttack.run(2)

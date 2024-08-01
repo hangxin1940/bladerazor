@@ -234,11 +234,6 @@ class CyberAssetsResearchers:
             if ipcdn is not None:
                 raise Exception(f"目标为CDN地址 {ipcdn.organization}")
 
-        portout = self._reconPortFastScanCrew(task_id, target).kickoff()
-        logger.info("[{}] {}: {}", task_id, target, portout)
-        portout = self._reconPortPreciseScanCrew(task_id, portout).kickoff()
-        logger.info("[{}] {}: {}", task_id, target, portout)
-
         agents = []
         tasks = []
         tools = self._getPassiveReconTools(task_id)
@@ -311,3 +306,10 @@ class CyberAssetsResearchers:
             logger.info("domain目标 {}", target)
             return self._reconDomainCrew(task_id, target)
         raise ValueError("目标类型不支持")
+
+    def portScanCrew(self, task_id: int, ip: str):
+
+        portout = self._reconPortFastScanCrew(task_id, ip).kickoff()
+        logger.info("[{}] {}: {}", task_id, ip, portout)
+        portout = self._reconPortPreciseScanCrew(task_id, portout).kickoff()
+        logger.info("[{}] {}: {}", task_id, ip, portout)
