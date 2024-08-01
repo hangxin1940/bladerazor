@@ -14,7 +14,7 @@ class RagSearchToolSchema(BaseModel):
 
 class RagSearchTool(BaseTool):
     name: str = "RAG知识搜索"
-    description: str = "搜索本地知识库"
+    description: str = "搜索本地知识库。对于特定ip地址或者特定域名，不可以使用该工具。"
     args_schema: Type[BaseModel] = RagSearchToolSchema
     masscan_path: str | None = None
     rag: RAG | None = None
