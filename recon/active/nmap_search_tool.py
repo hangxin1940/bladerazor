@@ -6,6 +6,7 @@ from crewai_tools.tools.base_tool import BaseTool
 from sqlalchemy import exc
 
 from helpers.nmap import Nmap
+from helpers.utils import valid_ip_address
 from persistence.database import DB
 from persistence.orm import Port, DuplicateException
 from config import logger
@@ -41,6 +42,9 @@ class NmapSearchTool(BaseTool):
     ) -> Any:
         nmap = Nmap(self.nmap_path)
         ip = kwargs.pop('ip')
+        if valid_ip_address(ip) is False:
+            return "IP地址格式错误"
+
         ports = kwargs.pop('ports')
 
         now = datetime.now()

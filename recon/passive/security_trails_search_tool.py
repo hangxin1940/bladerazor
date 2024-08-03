@@ -8,7 +8,7 @@ from requests import HTTPError
 from sqlalchemy import exc, and_, or_, func
 
 from helpers.security_trails_api import SecurityTrailsApi
-from helpers.utils import get_ip_type
+from helpers.utils import get_ip_type, valid_ip_address
 from persistence.database import DB
 from persistence.orm import Domain, Cdn, DuplicateException, update_assets_associate_cdn
 from tld import get_tld
@@ -162,6 +162,8 @@ class SecurityTrailsSearchTool(BaseTool):
                 logger.info("SecurityTrails查询: {}", domain)
                 results = stapi.search_domain(domain)
             elif ip != "":
+                if valid_ip_address(ip) is False:
+                    return "IP地址格式错误"
                 target = ip
                 logger.info("SecurityTrails查询: {}", ip)
                 results = stapi.search_ip(ip)

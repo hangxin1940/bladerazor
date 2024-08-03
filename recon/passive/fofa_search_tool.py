@@ -7,7 +7,7 @@ from crewai_tools.tools.base_tool import BaseTool
 from sqlalchemy import exc, and_, func, or_
 
 from helpers.fofa_api import FofaApi
-from helpers.utils import get_ip_type
+from helpers.utils import get_ip_type, valid_ip_address
 from persistence.database import DB
 from persistence.orm import Port, Domain, Cdn, DuplicateException, update_assets_associate_cdn
 from tld import get_tld
@@ -76,6 +76,8 @@ class FofaSearchTool(BaseTool):
             target = kwargs.get('domain')
         elif kwargs.get('ip') is not None:
             target = kwargs.get('ip')
+            if valid_ip_address(target) is False:
+                return "IP地址格式错误"
         results = []
         try:
             logger.info("FOFA查询: {}", kwargs)

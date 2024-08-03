@@ -6,7 +6,7 @@ from requests import HTTPError
 from sqlalchemy import exc, and_, func, or_
 
 from helpers.alienvault_api import AlienVaultApi
-from helpers.utils import get_ip_type
+from helpers.utils import get_ip_type, valid_ip_address
 from persistence.database import DB
 from persistence.orm import Domain, Cdn, DuplicateException, update_assets_associate_cdn
 from config import logger
@@ -53,6 +53,8 @@ class AlienVaultSearchTool(BaseTool):
                 logger.info("AlienVault查询: {}", domain)
                 results = avapi.search_domain(domain)
             else:
+                if valid_ip_address(ip) is False:
+                    return "IP地址格式错误"
                 target = ip
                 logger.info("AlienVault查询: {}", ip)
                 results = avapi.search_ipv4(ip)

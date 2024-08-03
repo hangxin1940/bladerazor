@@ -6,6 +6,7 @@ from crewai_tools.tools.base_tool import BaseTool
 from sqlalchemy import exc
 
 from helpers.masscan import Masscan
+from helpers.utils import valid_ip_address
 from persistence.database import DB
 from persistence.orm import Port, DuplicateException
 from config import logger
@@ -40,6 +41,8 @@ class MasscanSearchTool(BaseTool):
     ) -> Any:
         masscan = Masscan(self.masscan_path)
         ip = kwargs.pop('ip')
+        if valid_ip_address(ip) is False:
+            return "IP地址格式错误"
         now = datetime.now()
         results = []
         openports = []
