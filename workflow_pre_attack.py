@@ -3,15 +3,15 @@ from urllib.parse import urlparse
 
 import validators
 from langgraph.graph import StateGraph
-from typing import TypedDict, Optional, Any
+from typing import TypedDict, Optional
 
 from langgraph.graph.graph import CompiledGraph
-from sqlalchemy import and_, func
+from sqlalchemy import and_
 from tld import get_tld
 
-from helpers.utils import is_domain
+from helpers.utils import is_domain, valid_ip_address
 from persistence.database import DB
-from persistence.orm import Domain, Port, WebInfo
+from persistence.orm import Domain, Port, WebInfo, Workflow, ip_is_cdn
 from team import Team
 from config import logger
 
@@ -20,18 +20,45 @@ class StatePreAttack(IntEnum):
     INIT = 0  # 初始化
     RECON = 1  # 侦察
     MAPPING = 2  # 测绘
-    VULSCAN = 3  # 漏扫
+    PORTSCAN = 3  # 端口扫描
+    VULSCAN = 4  # 漏扫
     FINISH = 99  # 结束
+    IGNORE = -1  # 忽略
 
 
 class Target:
-    def __init__(self, task_id: int, target: str, db: DB | None = None, orm_id=0, orm_class: Any = None):
+    def __init__(self, db: DB, task_id: int, parent_target: str, target: str, workflow_id=0,
+                 status=StatePreAttack.INIT):
+        self.workflow_id = workflow_id
         self.db = db
-        self.orm_id = orm_id
-        self.orm_class = orm_class
         self.task_id = task_id
+        self.parent_target = parent_target
         self.target = target
-        self.status = StatePreAttack.INIT
+        self.status = status
+
+    def init(self):
+        with self.db.DBSession() as session:
+            if self.workflow_id == 0:
+                wf = Workflow()
+                wf.work = 'pre_attack'
+                wf.task_id = self.task_id
+                wf.status = int(self.status)
+                wf.data = {'parent_target': self.parent_target, 'target': self.target}
+                session.add(wf)
+                session.flush()
+                session.commit()
+                self.workflow_id = wf.id
+
+    def update_status(self):
+        with self.db.DBSession() as session:
+            wf = session.query(Workflow).filter(
+                and_(
+                    Workflow.id == self.workflow_id
+                )
+            ).first()
+            wf.status = int(self.status)
+
+            session.commit()
 
     def __repr__(self):
         return f'{self.status} {self.task_id}: {self.target}'
@@ -46,22 +73,56 @@ class Target:
         if self.status == StatePreAttack.INIT:
             self.status = StatePreAttack.RECON
         elif self.status == StatePreAttack.RECON:
-            self.status = StatePreAttack.MAPPING
+            if valid_ip_address(self.target):
+                self.status = StatePreAttack.PORTSCAN
+            else:
+                self.status = StatePreAttack.MAPPING
         elif self.status == StatePreAttack.MAPPING:
+            if valid_ip_address(self.target):
+                self.status = StatePreAttack.PORTSCAN
+            else:
+                self.status = StatePreAttack.VULSCAN
+        elif self.status == StatePreAttack.PORTSCAN:
             self.status = StatePreAttack.VULSCAN
         elif self.status == StatePreAttack.VULSCAN:
             self.status = StatePreAttack.FINISH
 
-        if self.db is not None and self.orm_id > 0 and self.orm_class is not None:
-            with self.db.DBSession() as session:
-                orm = session.query(self.orm_class).get(self.orm_id)
-                orm.task_state = self.status
-                session.commit()
+        self.update_status()
 
 
 class TaskStatePreAttack(TypedDict):
     task_id: int
     targets: set[Target]
+
+
+def add_target_to_state(db: DB, state: TaskStatePreAttack, parent_target: str, target: str, workflow_id=0,
+                        status=StatePreAttack.INIT):
+    target = Target(db, state['task_id'], parent_target, target, workflow_id, status)
+    if target not in state['targets']:
+        state['targets'].add(target)
+        if workflow_id == 0:
+            target.init()
+
+
+def check_target_cdn(db: DB, state: TaskStatePreAttack):
+    """ 检查是否为CDN地址 """
+    for target in state['targets']:
+        if valid_ip_address(target.parent_target):
+            iscdn = False
+            with db.DBSession() as session:
+                iscdn = ip_is_cdn(session, target.parent_target)
+            if iscdn:
+                target.status = StatePreAttack.IGNORE
+                target.update_status()
+                continue
+
+        if valid_ip_address(target.target):
+            iscdn = False
+            with db.DBSession() as session:
+                iscdn = ip_is_cdn(session, target.target)
+            if iscdn:
+                target.status = StatePreAttack.IGNORE
+                target.update_status()
 
 
 class TaskNodesPreAttack:
@@ -76,26 +137,27 @@ class TaskNodesPreAttack:
         """
         初始化任务
         """
-        for target in state['targets']:
-            target.next_status()
+        # for target in state['targets']:
+        #     target.next_status()
+        check_target_cdn(self.db, state)
         return state
 
     def recon(self, state: TaskStatePreAttack):
         """
         侦察目标
         """
+        check_target_cdn(self.db, state)
         for target in state['targets']:
-            taskid = target.task_id
             if target.status == StatePreAttack.INIT:
                 target.next_status()
             if target.status == StatePreAttack.RECON:
                 try:
                     crew = self.team.cyberAssetsResearchers.reconCrew(target.task_id, target.target)
                     out = crew.kickoff()
+                    target.next_status()
                     logger.info("[recon {}] {}: {}", target.task_id, target, out)
                 except Exception as e:
                     logger.error("[recon {}] {}: {}", target.task_id, target, e)
-                target.next_status()
 
         self._padding_new_assets(state["task_id"], state)
         return state
@@ -104,18 +166,18 @@ class TaskNodesPreAttack:
         """
         测绘
         """
+        check_target_cdn(self.db, state)
         for target in state['targets']:
-            taskid = target.task_id
             if target.status == StatePreAttack.MAPPING:
                 try:
                     crew = self.team.vulScanExpert.fingerprintingCrew(target.task_id, target.target)
                     out = crew.kickoff()
+                    target.next_status()
                     logger.info("[mapping {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
                     logger.debug("[mapping {}] {}: {}", target.task_id, target, e)
                 except Exception as e:
                     logger.error("[mapping {}] {}: {}", target.task_id, target, e)
-                target.next_status()
         self._padding_new_assets(state["task_id"], state)
         return state
 
@@ -123,44 +185,14 @@ class TaskNodesPreAttack:
         """
         端口扫描
         """
-        # 获取所有ip资源
-        allips = set()
-        with self.db.DBSession() as session:
-            domains = session.query(Domain).filter(
-                and_(
-                    Domain.task_id == state["task_id"],
-                )
-            ).all()
-            for domain in domains:
-                if len(domain.a) > 0:
-                    for idx, a in enumerate(domain.a):
-                        if domain.a_cdn[idx] is None:
-                            allips.add(a)
-
-            ports = session.query(Port).filter(
-                and_(
-                    Port.task_id == state["task_id"],
-                    Port.ip_cdn == None
-                )
-            ).all()
-            for port in ports:
-                allips.add(port.ip)
-
-            webinfos = session.query(WebInfo).filter(
-                and_(
-                    WebInfo.task_id == state["task_id"],
-                    WebInfo.ip != None,
-                    WebInfo.ip_cdn == None
-                )
-            ).all()
-            for webinfo in webinfos:
-                allips.add(webinfo.ip)
-
-        for ip in allips:
-            try:
-                self.team.cyberAssetsResearchers.portScanCrew(state["task_id"], ip)
-            except Exception as e:
-                logger.error("[port_scan {}] {}: {}", state["task_id"], ip, e)
+        check_target_cdn(self.db, state)
+        for target in state['targets']:
+            if target.status == StatePreAttack.PORTSCAN:
+                try:
+                    self.team.cyberAssetsResearchers.portScanCrew(state["task_id"], target.target)
+                    target.next_status()
+                except Exception as e:
+                    logger.error("[port_scan {}] {}: {}", state["task_id"], target.target, e)
 
         return state
 
@@ -168,35 +200,19 @@ class TaskNodesPreAttack:
         """
         漏扫
         """
+        check_target_cdn(self.db, state)
         for target in state['targets']:
             if target.status == StatePreAttack.VULSCAN:
                 try:
                     crew = self.team.vulScanExpert.vulScanCrew(target.task_id, target.target)
                     out = crew.kickoff()
+                    target.next_status()
                     logger.info("[vulscan {}] {}: {}", target.task_id, target, out)
                 except ValueError as e:
                     logger.debug("[vulscan {}] {}: {}", target.task_id, target, e)
                 except Exception as e:
                     logger.error("[vulscan {}] {}: {}", target.task_id, target, e)
-            target.next_status()
-        return state
 
-    def exploit(self, state: TaskStatePreAttack):
-        """
-        漏洞利用
-        """
-        datas = self._assets_intelligence(state['task_id'])
-        for target, data in datas.items():
-            try:
-                datastr = f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}"
-                # TODO
-                crew = self.team.get_establishing_foothold_research_crew(datastr)
-                out = crew.kickoff()
-                logger.info("[exploit {}]\n{}", state['task_id'], out)
-            except ValueError as e:
-                logger.debug("[exploit {}]\n{}", state['task_id'], e)
-            except Exception as e:
-                logger.error("[exploit {}]\n{}", state['task_id'], e)
         return state
 
     def finish(self, state: TaskStatePreAttack):
@@ -208,7 +224,16 @@ class TaskNodesPreAttack:
             print('finish', target)
         return state
 
-    def edge_shuld_recon(self, state: TaskStatePreAttack):
+    def edge_shuld_recon_or_mapping(self, state: TaskStatePreAttack):
+        """
+        条件边
+        """
+        for target in state['targets']:
+            if target.status == StatePreAttack.RECON or target.status == StatePreAttack.INIT:
+                return 'recon'
+        return 'mapping'
+
+    def edge_shuld_recon_or_portscan(self, state: TaskStatePreAttack):
         """
         条件边
         """
@@ -216,63 +241,49 @@ class TaskNodesPreAttack:
         for target in state['targets']:
             if target.status == StatePreAttack.RECON or target.status == StatePreAttack.INIT:
                 return 'recon'
-        return 'pass'
+        return 'port_scan'
 
     def _padding_new_assets(self, task_id: int, state: TaskStatePreAttack):
         """
         获取新资产以进一步侦察
         """
+        targets = set()
         with self.db.DBSession() as session:
-            domains = session.query(Domain).filter(
-                and_(
-                    Domain.task_id == task_id,
-                    Domain.task_state.in_((StatePreAttack.INIT, StatePreAttack.RECON))
-                )
-            ).all()
+            domains = session.query(Domain).filter(Domain.task_id == task_id).all()
             for domain in domains:
                 if domain.host_cdn is None:
-                    target = Target(task_id, domain.host, self.db, domain.id, Domain)
-                    state['targets'].add(target)
+                    targets.add((domain.target, domain.host))
                 if len(domain.a) > 0:
                     for idx, a in enumerate(domain.a):
                         if domain.a_cdn[idx] is None:
-                            target = Target(task_id, a)
-                            state['targets'].add(target)
+                            targets.add((domain.target, a))
                 if domain.cname is not None:
                     for idx, cname in enumerate(domain.cname):
                         if domain.cname_cdn[idx] is None:
-                            target = Target(task_id, cname)
-                            state['targets'].add(target)
+                            targets.add((domain.target, cname))
 
             ports = session.query(Port).filter(
                 and_(
                     Port.task_id == task_id,
-                    Port.task_state == StatePreAttack.INIT,
                     Port.ip_cdn == None
                 )
             ).all()
             for port in ports:
-                target = Target(task_id, port.ip)
-                state['targets'].add(target)
+                targets.add(port.ip)
                 if port.service is not None and port.service.startswith('http'):
-                    target = Target(task_id, f'{port.service}://{port.ip}:{port.port}', self.db, port.id, Port)
-                    state['targets'].add(target)
+                    targets.add((domain.target, f'{port.service}://{port.ip}:{port.port}'))
 
                 if port.extra_info is not None:
                     if "domain" in port.extra_info:
-                        target = Target(task_id, port.extra_info["domain"])
-                        state['targets'].add(target)
+                        targets.add((domain.target, port.extra_info["domain"]))
                     if "host" in port.extra_info:
-                        target = Target(task_id, port.extra_info["host"])
-                        state['targets'].add(target)
+                        targets.add((domain.target, port.extra_info["host"]))
                     if "cname" in port.extra_info:
                         for cname in port.extra_info['cname'].split(','):
-                            target = Target(task_id, cname)
-                            state['targets'].add(target)
+                            targets.add((domain.target, cname))
                     if "cert" in port.extra_info:
                         if "subject_cn" in port.extra_info['cert']:
-                            target = Target(task_id, port.extra_info['cert']['subject_cn'])
-                            state['targets'].add(target)
+                            targets.add((domain.target, port.extra_info['cert']['subject_cn']))
 
             webinfos = session.query(WebInfo).filter(
                 and_(
@@ -282,8 +293,12 @@ class TaskNodesPreAttack:
                 )
             ).all()
             for webinfo in webinfos:
-                target = Target(task_id, webinfo.ip)
-                state['targets'].add(target)
+                targets.add((webinfo.ip, webinfo.ip))
+                targets.add((webinfo.ip, f'http://{webinfo.ip}'))
+                targets.add((webinfo.ip, f'https://{webinfo.ip}'))
+
+        for parent_target, target in targets:
+            add_target_to_state(self.db, state, parent_target, target)
 
 
 class WorkFlowPreAttack:
@@ -312,19 +327,19 @@ class WorkFlowPreAttack:
         workflow.add_conditional_edges(
             source='recon',
             # 条件边, 有新目标则继续侦察
-            path=nodes.edge_shuld_recon,
+            path=nodes.edge_shuld_recon_or_mapping,
             path_map={
                 'recon': 'recon',
-                'pass': 'mapping'
+                'mapping': 'mapping'
             }
         )
         workflow.add_conditional_edges(
             source='mapping',
             # 条件边, 有新目标则继续侦察
-            path=nodes.edge_shuld_recon,
+            path=nodes.edge_shuld_recon_or_portscan,
             path_map={
                 'recon': 'recon',
-                'pass': 'port_scan'
+                'port_scan': 'port_scan'
             }
         )
         workflow.add_edge('port_scan', 'vulscan')
@@ -332,24 +347,35 @@ class WorkFlowPreAttack:
 
         self.app = workflow.compile(debug=debug)
 
-    def run(self, taskid: int, target: str):
+    def run(self, taskid: int, target: str | None = None):
         state = {
             'task_id': taskid,
             'targets': set(),
         }
 
-        if validators.url(target):
-            hu = urlparse(target)
+        with self.db.DBSession() as session:
+            wfs = session.query(Workflow).filter(
+                and_(
+                    Workflow.task_id == taskid,
+                    Workflow.work == 'pre_attack'
+                )
+            ).all()
+            for wf in wfs:
+                add_target_to_state(self.db, state, wf.data['parent_target'], wf.data['target'], workflow_id=wf.id,
+                                    status=StatePreAttack(wf.status))
 
-            domain_obj = get_tld(hu.netloc, fail_silently=True, as_object=True, fix_protocol=True)
-            state['targets'].add(Target(taskid, domain_obj.fld))
+        if target is not None:
+            if validators.url(target):
+                hu = urlparse(target)
 
-            state['targets'].add(Target(taskid, hu.netloc))
+                domain_obj = get_tld(hu.netloc, fail_silently=True, as_object=True, fix_protocol=True)
+                add_target_to_state(self.db, state, target, domain_obj.fld)
+                add_target_to_state(self.db, state, target, hu.netloc)
 
-        elif is_domain(target, rfc_2782=True):
-            domain_obj = get_tld(target, fail_silently=True, as_object=True, fix_protocol=True)
-            state['targets'].add(Target(taskid, domain_obj.fld))
+            elif is_domain(target, rfc_2782=True):
+                domain_obj = get_tld(target, fail_silently=True, as_object=True, fix_protocol=True)
+                add_target_to_state(self.db, state, target, domain_obj.fld)
 
-        state['targets'].add(Target(taskid, target))
+            add_target_to_state(self.db, state, target, target)
 
         self.app.invoke(state)

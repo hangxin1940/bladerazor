@@ -7,7 +7,7 @@ from textwrap import dedent
 
 from helpers.utils import is_domain
 from persistence.database import DB
-from persistence.orm import Cdn
+from persistence.orm import ip_is_cdn
 from recon.active.masscan_search_tool import MasscanSearchTool
 from recon.active.nmap_search_tool import NmapSearchTool
 from recon.passive.alienvault_search_tool import AlienVaultSearchTool
@@ -228,11 +228,9 @@ class CyberAssetsResearchers:
         if ip.is_private:
             # TODO
             raise NotImplementedError("暂不支持内网地址的扫描")
-
         with self.db.DBSession() as session:
-            ipcdn = session.query(Cdn).filter(Cdn.cidr.op('>>')(target)).first()
-            if ipcdn is not None:
-                raise Exception(f"目标为CDN地址 {ipcdn.organization}")
+            if ip_is_cdn(session, ip.exploded):
+                raise Exception(f"目标为CDN地址")
 
         agents = []
         tasks = []

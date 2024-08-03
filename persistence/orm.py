@@ -6,7 +6,7 @@ from typing import Union
 
 from psycopg2._psycopg import AsIs
 from psycopg2.extensions import register_adapter
-from sqlalchemy import DateTime, func, Integer, Boolean, ARRAY, TEXT, ForeignKey, event, select
+from sqlalchemy import DateTime, func, Integer, Boolean, ARRAY, TEXT, ForeignKey, event, select, and_, or_
 from sqlalchemy.dialects.postgresql import JSONB, INET, CIDR
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, relationship, Session
@@ -90,6 +90,7 @@ class PenTestTask(Base):
     domains = relationship("Domain", back_populates="task")
     web_infos = relationship("WebInfo", back_populates="task")
     vuls = relationship("Vul", back_populates="task")
+    workflows = relationship("Workflow", back_populates="task")
 
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -112,8 +113,6 @@ class Port(Base):
     extra_info: Mapped[dict] = mapped_column(JSONB, nullable=True, comment="其他信息")
 
     source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
-
-    task_state: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="任务状态")
 
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     checked_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=None, nullable=True)
@@ -184,8 +183,6 @@ class Domain(Base):
     txt: Mapped[[str]] = mapped_column(ARRAY(String), nullable=True)
     extra_info: Mapped[dict] = mapped_column(JSONB, nullable=True, comment="其他信息")
     source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
-
-    task_state: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="任务状态")
 
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     checked_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=None, nullable=True)
@@ -390,3 +387,47 @@ def before_insert_web_info(mapper, connection, target):
             select(Vul).where(Vul.unique_hash == target.unique_hash)).scalar_one_or_none()
         if existing:
             raise DuplicateException()
+
+
+class Workflow(Base):
+    __tablename__: str = "workflow"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("pen_test_tasks.id"))
+    task = relationship("PenTestTask", back_populates="workflows")
+
+    work: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    edited: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+                                             nullable=False)
+
+
+def ip_is_cdn(session, ip: str):
+    ipcdn = session.query(Cdn).filter(Cdn.cidr.op('>>')(ip)).first()
+    if ipcdn is not None:
+        return True
+
+    ipport = session.query(Port).filter(and_(Port.ip == ip, Port.ip_cdn != None)).first()
+    if ipport is not None:
+        return True
+
+    winfos = session.query(WebInfo).filter(and_(WebInfo.ip == ip, WebInfo.ip_cdn != None)).first()
+    if winfos is not None:
+        return True
+
+    ipdomains = session.query(Domain).filter(or_(Domain.a.any(ip), Domain.aaaa.any(ip))).first()
+    if ipdomains is not None:
+        for index, a in enumerate(ipdomains.a):
+            if str(a) == ip:
+                if ipdomains.a_cdn[index] is not None:
+                    return True
+        for index, aaaa in enumerate(ipdomains.aaaa):
+            if str(aaaa) == ip:
+                if ipdomains.aaaa_cdn[index] is not None:
+                    return True
+
+    return False
