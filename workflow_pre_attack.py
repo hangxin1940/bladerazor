@@ -15,6 +15,8 @@ from persistence.orm import Domain, Port, WebInfo, Workflow, ip_is_cdn
 from team import Team
 from config import logger
 
+WORK = 'pre_attack'
+
 
 class StatePreAttack(IntEnum):
     INIT = 0  # 初始化
@@ -40,7 +42,7 @@ class Target:
         with self.db.DBSession() as session:
             if self.workflow_id == 0:
                 wf = Workflow()
-                wf.work = 'pre_attack'
+                wf.work = WORK
                 wf.task_id = self.task_id
                 wf.status = int(self.status)
                 wf.data = {'parent_target': self.parent_target, 'target': self.target}
@@ -357,7 +359,7 @@ class WorkFlowPreAttack:
             wfs = session.query(Workflow).filter(
                 and_(
                     Workflow.task_id == taskid,
-                    Workflow.work == 'pre_attack'
+                    Workflow.work == WORK
                 )
             ).all()
             for wf in wfs:
