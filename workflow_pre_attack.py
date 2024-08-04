@@ -370,9 +370,15 @@ class WorkFlowPreAttack:
             if validators.url(target):
                 hu = urlparse(target)
 
-                domain_obj = get_tld(hu.netloc, fail_silently=True, as_object=True, fix_protocol=True)
-                add_target_to_state(self.db, state, target, domain_obj.fld)
-                add_target_to_state(self.db, state, target, hu.netloc)
+                if is_domain(hu.netloc, rfc_2782=True):
+                    domain_obj = get_tld(hu.netloc, fail_silently=True, as_object=True, fix_protocol=True)
+                    add_target_to_state(self.db, state, target, domain_obj.fld)
+                if ":" in hu.netloc:
+                    host, separator, port = hu.netloc.rpartition(':')
+                    add_target_to_state(self.db, state, target, host)
+                else:
+                    add_target_to_state(self.db, state, target, hu.netloc)
+
 
             elif is_domain(target, rfc_2782=True):
                 domain_obj = get_tld(target, fail_silently=True, as_object=True, fix_protocol=True)
