@@ -303,6 +303,7 @@ class WebInfo(Base):
         return dedent(
             f"""
             url: {self.url}
+            前置CDN类型: {self.ip_cdn if self.ip_cdn is not None else "无"}
             指纹特征: {fptxt}
             """)
 
