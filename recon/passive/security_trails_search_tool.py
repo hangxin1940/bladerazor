@@ -13,6 +13,7 @@ from persistence.database import DB
 from persistence.orm import Domain, Cdn, DuplicateException, update_assets_associate_cdn
 from tld import get_tld
 from config import logger
+from recon.passive.cdn_check import CdnCheck
 
 
 class SecurityTrailsSearchToolSchema(BaseModel):
@@ -35,14 +36,26 @@ class SecurityTrailsSearchTool(BaseTool):
     args_schema: Type[BaseModel] = SecurityTrailsSearchToolSchema
     db: DB | None = None
     task_id: int | None = None
+    llm: Any = None
+    verbose: bool = False
+    cdn_autonomous_judgment: bool = False
+    cdn_apexdomain_threshold: int = 1
+    cdn_subdomain_threshold: int = 1
 
     class Config:
         arbitrary_types_allowed = True
 
-    def __init__(self, db: DB, task_id: int):
+    def __init__(self, db: DB, task_id: int, llm=None, verbose=False, cdn_autonomous_judgment=False,
+                 cdn_apexdomain_threshold=50,
+                 cdn_subdomain_threshold=3):
         super().__init__()
         self.db = db
         self.task_id = task_id
+        self.llm = llm
+        self.verbose = verbose
+        self.cdn_autonomous_judgment = cdn_autonomous_judgment
+        self.cdn_apexdomain_threshold = cdn_apexdomain_threshold
+        self.cdn_subdomain_threshold = cdn_subdomain_threshold
         logger.info("初始化工具 SecurityTrails")
 
     def _run(
@@ -175,6 +188,20 @@ class SecurityTrailsSearchTool(BaseTool):
 
         if len(results) == 0:
             return "未发现资产"
+
+        if valid_ip_address(target):
+            cdn_check = CdnCheck(self.db, target, llm=self.llm, verbose=self.verbose,
+                                 autonomous_judgment=self.cdn_autonomous_judgment,
+                                 apexdomain_threshold=self.cdn_apexdomain_threshold,
+                                 subdomain_threshold=self.cdn_subdomain_threshold)
+            for result in results:
+                cdn_check.add(result.apex_domain, result.subdomain)
+
+            if cdn_check.check():
+                with self.db.DBSession() as session:
+                    update_assets_associate_cdn(session, target, cdn_check.get_name())
+                return "CDN服务器"
+
         try:
             cdns = {}
             with self.db.DBSession() as session:

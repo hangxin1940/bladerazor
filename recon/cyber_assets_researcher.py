@@ -23,12 +23,18 @@ class CyberAssetsResearchers:
     主要用于网络资产的被动侦察和主动扫描，以扩大攻击面
     """
 
-    def __init__(self, db: DB, llm=None, masscan_path=None, nmap_path=None, verbose: bool = False):
+    def __init__(self, db: DB, llm=None, masscan_path=None, nmap_path=None, verbose=False,
+                 cdn_autonomous_judgment=False,
+                 cdn_apexdomain_threshold=50,
+                 cdn_subdomain_threshold=3):
         self.llm = llm
         self.db = db
         self.masscan_path = masscan_path
         self.nmap_path = nmap_path
         self.verbose = verbose
+        self.cdn_autonomous_judgment = cdn_autonomous_judgment
+        self.cdn_apexdomain_threshold = cdn_apexdomain_threshold
+        self.cdn_subdomain_threshold = cdn_subdomain_threshold
 
     def agent_cyber_asset_intelligence_scout(self, llm=None, tools: [BaseTool] = []) -> Agent:
         logger.info("初始化代理 网络资产情报侦察员")
@@ -67,6 +73,8 @@ class CyberAssetsResearchers:
                 根据目标类型选择合适的工具进行搜索。
                 需要注意以下几点:
                 - 如果目标为ipv4或ipv6地址，则必须为公网地址，否则不进行扫描。
+                
+                如果目标为CDN，则跳过目标。
 
                 目标: `{target}`
                 """
@@ -255,12 +263,16 @@ class CyberAssetsResearchers:
 
     def _getPassiveReconTools(self, task_id: int) -> []:
         tools = [
-            AlienVaultSearchTool(self.db, task_id),
+            AlienVaultSearchTool(self.db, task_id, self.llm, self.verbose, self.cdn_autonomous_judgment,
+                                 self.cdn_apexdomain_threshold, self.cdn_subdomain_threshold),
         ]
         if os.environ.get('FOFA_EMAIL') is not None and os.environ.get('FOFA_API_KEY') is not None:
-            tools.append(FofaSearchTool(self.db, task_id))
+            tools.append(FofaSearchTool(self.db, task_id, self.llm, self.verbose, self.cdn_autonomous_judgment,
+                                        self.cdn_apexdomain_threshold, self.cdn_subdomain_threshold))
         if os.environ.get('SECURITYTRAILS_API_KEY') is not None:
-            tools.append(SecurityTrailsSearchTool(self.db, task_id))
+            tools.append(
+                SecurityTrailsSearchTool(self.db, task_id, self.llm, self.verbose, self.cdn_autonomous_judgment,
+                                         self.cdn_apexdomain_threshold, self.cdn_subdomain_threshold))
         return tools
 
     def _reconDomainCrew(self, task_id: int, target: str):
