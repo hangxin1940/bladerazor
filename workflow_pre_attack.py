@@ -271,7 +271,7 @@ class TaskNodesPreAttack:
                 )
             ).all()
             for port in ports:
-                targets.add(port.ip)
+                targets.add((domain.target, port.ip))
                 if port.service is not None and port.service.startswith('http'):
                     targets.add((domain.target, f'{port.service}://{port.ip}:{port.port}'))
 
