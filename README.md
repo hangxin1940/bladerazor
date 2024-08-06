@@ -47,6 +47,7 @@ stateDiagram-v2
     state "资产测绘" as AssetMapping
     state "端口扫描" as PortScan
     state "漏扫" as VulScan
+    state "目录枚举" as DirectoryBruteforcing
     state new_recon_assets_state <<choice>>
     state new_mapping_assets_state <<choice>>
     [*] --> Recon
@@ -57,7 +58,8 @@ stateDiagram-v2
     new_mapping_assets_state --> Recon: 有新资产
     new_mapping_assets_state --> PortScan: 无新资产
     PortScan --> VulScan
-    VulScan --> [*]
+    VulScan --> DirectoryBruteforcing
+    DirectoryBruteforcing --> [*]
 ```
 
 

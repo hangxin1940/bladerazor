@@ -24,6 +24,7 @@ class StatePreAttack(IntEnum):
     MAPPING = 2  # 测绘
     PORTSCAN = 3  # 端口扫描
     VULSCAN = 4  # 漏扫
+    DIRECTORY_BRUTEFORCING = 5  # 目录爆破
     FINISH = 99  # 结束
     IGNORE = -1  # 忽略
 
@@ -87,6 +88,8 @@ class Target:
         elif self.status == StatePreAttack.PORTSCAN:
             self.status = StatePreAttack.VULSCAN
         elif self.status == StatePreAttack.VULSCAN:
+            self.status = StatePreAttack.DIRECTORY_BRUTEFORCING
+        elif self.status == StatePreAttack.DIRECTORY_BRUTEFORCING:
             self.status = StatePreAttack.FINISH
 
         self.update_status()
@@ -217,6 +220,19 @@ class TaskNodesPreAttack:
 
         return state
 
+    def directory_bruteforcing(self, state: TaskStatePreAttack):
+        """
+        目录爆破
+        """
+
+        self.team.vulScanExpert.do_directory_bruteforcing(state["task_id"])
+        logger.info("[directory_bruteforcing {}]", state["task_id"])
+
+        for target in state['targets']:
+            if target.status == StatePreAttack.DIRECTORY_BRUTEFORCING:
+                target.next_status()
+        return state
+
     def finish(self, state: TaskStatePreAttack):
         """
         结束任务
@@ -320,6 +336,7 @@ class WorkFlowPreAttack:
         workflow.add_node('mapping', nodes.mapping)
         workflow.add_node('port_scan', nodes.port_scan)
         workflow.add_node('vulscan', nodes.vulscan)
+        workflow.add_node('directory_bruteforcing', nodes.directory_bruteforcing)
         workflow.add_node('finish', nodes.finish)
 
         workflow.set_entry_point('init_task')
@@ -345,7 +362,8 @@ class WorkFlowPreAttack:
             }
         )
         workflow.add_edge('port_scan', 'vulscan')
-        workflow.add_edge('vulscan', 'finish')
+        workflow.add_edge('vulscan', 'directory_bruteforcing')
+        workflow.add_edge('directory_bruteforcing', 'finish')
 
         self.app = workflow.compile(debug=debug)
 

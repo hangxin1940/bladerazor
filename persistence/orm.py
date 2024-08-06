@@ -89,6 +89,7 @@ class PenTestTask(Base):
     ports = relationship("Port", back_populates="task")
     domains = relationship("Domain", back_populates="task")
     web_infos = relationship("WebInfo", back_populates="task")
+    url_enums = relationship("UrlEnum", back_populates="task")
     vuls = relationship("Vul", back_populates="task")
     workflows = relationship("Workflow", back_populates="task")
 
@@ -405,6 +406,31 @@ class Workflow(Base):
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     edited: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
                                              nullable=False)
+
+
+class UrlEnum(Base):
+    __tablename__: str = "url_enums"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("pen_test_tasks.id"))
+    task = relationship("PenTestTask", back_populates="url_enums")
+    web_info_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    url: Mapped[str] = mapped_column(String(2048), nullable=True, comment="URL地址")
+    path: Mapped[str] = mapped_column(String(2048), nullable=True, comment="路径")
+    host: Mapped[str] = mapped_column(String(512), nullable=False)
+    schema: Mapped[str] = mapped_column(String(16), nullable=False, comment="协议")
+    current_redirects: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="重定向次数")
+    redirect_to: Mapped[str] = mapped_column(String(2048), nullable=True, comment="重定向地址")
+    title: Mapped[str] = mapped_column(String(512), nullable=True)
+    status: Mapped[int] = mapped_column(Integer, nullable=False)
+    headers: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=True, comment="返回头")
+    favicons: Mapped[[Favicon]] = mapped_column(JSONB, nullable=True, comment="图标信息")
+    body: Mapped[str] = mapped_column(TEXT, nullable=True, comment="HTML正文")
+
+    finger_prints: Mapped[[MatchItem]] = mapped_column(JSONB, nullable=True, comment="指纹信息")
+
+    source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 def ip_is_cdn(session, ip: str):

@@ -21,6 +21,8 @@ class Team:
                  debug: Optional[bool] = None,
                  masscan_path: Optional[str] = None,
                  nmap_path: Optional[str] = None,
+                 gobuster_path: str = None,
+                 gobuster_wordlist_path: str = None,
                  nuclei_path: Optional[str] = None,
                  nuclei_templates_path: Optional[str] = None):
         self.cyberAssetsResearchers = CyberAssetsResearchers(
@@ -34,8 +36,10 @@ class Team:
         self.vulScanExpert = VulScanExpert(
             db=db,
             llm=llm,
+            gobuster_path=gobuster_path,
+            gobuster_wordlist_path=gobuster_wordlist_path,
             nuclei_path=nuclei_path,
-            templates_path=nuclei_templates_path,
+            nuclei_templates_path=nuclei_templates_path,
             verbose=debug
         )
 
