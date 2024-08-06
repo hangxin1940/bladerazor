@@ -1,0 +1,15 @@
+{
+  "fingerprint": [
+    {
+      "cms": "thinkadmin",
+      "method": "keyword",
+      "location": "body",
+      "keyword": [
+        "ADMIN_MODULE",
+        "十年磨一剑-为API开发设计的高性能框架",
+        "http://www.thinkphp.cn",
+        "ThinkPHP"
+      ]
+    }
+  ]
+}

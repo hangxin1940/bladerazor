@@ -178,6 +178,9 @@ class WebFingers:
         with open(path.join(self.base_path, 'assets/finger.json'), encoding='utf-8') as f:
             data = json.load(f)
             datas += data['fingerprint']
+        with open(path.join(self.base_path, 'assets/custom.json'), encoding='utf-8') as f:
+            data = json.load(f)
+            datas += data['fingerprint']
 
         fingers = []
         for item in datas:
