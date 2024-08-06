@@ -1,13 +1,14 @@
 {
   "fingerprint": [
     {
-      "cms": "thinkadmin",
+      "cms": "thinkadmin报错页面",
       "method": "keyword",
       "location": "body",
       "keyword": [
         "ADMIN_MODULE",
         "十年磨一剑-为API开发设计的高性能框架",
         "http://www.thinkphp.cn",
+        "Environment Variables",
         "ThinkPHP"
       ]
     }
