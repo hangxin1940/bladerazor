@@ -58,6 +58,7 @@ def analyze(html: str) -> str:
         datas = f"{datas}\n\n纯文本内容:\n`{puretext}`"
 
     datas = datas.strip()
+    return datas
 
 
 def _find_paths(text: str) -> []:
