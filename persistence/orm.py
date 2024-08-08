@@ -16,6 +16,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from helpers.crawler import Favicon
 from helpers.fingers import MatchItem
+from helpers.html_information_leak_analyze import analyze
 
 
 def adapt_pydantic_ip_address(ip):
@@ -282,6 +283,8 @@ class WebInfo(Base):
 
     unique_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, comment="唯一哈希摘要")
 
+    url_enums = relationship("UrlEnum", back_populates="web_info")
+
     def generate_unique_hash(self):
         unique_str = f"{self.task_id}-{self.host}-{self.schema}-{self.url}-"
         unique_str += f"{self.title}-{self.status}-{self.favicons}-{self.source}"
@@ -301,11 +304,17 @@ class WebInfo(Base):
 
         fptxt = ", ".join(fps)
 
+        infoleaks = analyze(self.body)
+        if infoleaks != "":
+            infoleaks = f"潜在的信息泄露:\n{infoleaks}"
+
         return dedent(
             f"""
             url: {self.url}
             前置CDN类型: {self.ip_cdn if self.ip_cdn is not None else "无"}
             指纹特征: {fptxt}
+            
+            {infoleaks}
             """)
 
 
@@ -414,7 +423,8 @@ class UrlEnum(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("pen_test_tasks.id"))
     task = relationship("PenTestTask", back_populates="url_enums")
-    web_info_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    web_info_id: Mapped[int] = mapped_column(ForeignKey("web_infos.id"))
+    web_info = relationship("WebInfo", back_populates="url_enums")
     url: Mapped[str] = mapped_column(String(2048), nullable=True, comment="URL地址")
     path: Mapped[str] = mapped_column(String(2048), nullable=True, comment="路径")
     host: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -431,6 +441,25 @@ class UrlEnum(Base):
 
     source: Mapped[str] = mapped_column(String(32), nullable=True, comment="来源")
     created: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def to_prompt_template(self):
+        fps = set()
+        for fp in self.finger_prints:
+            fps.add(fp['name'])
+
+        fptxt = ", ".join(fps)
+
+        infoleaks = analyze(self.body)
+        if infoleaks != "":
+            infoleaks = f"潜在的信息泄露:\n{infoleaks}"
+
+        return dedent(
+            f"""
+            url: {self.url}
+            指纹特征: {fptxt}
+
+            {infoleaks}
+            """)
 
 
 def ip_is_cdn(session, ip: str):

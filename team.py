@@ -68,14 +68,20 @@ class Team:
         """
         return self.vulScanExpert.vulScanCrew(task_id, target)
 
-    def get_establishing_foothold_research_crew(self, target: str):
+    def get_intelligence_analysis_crew(self, target: str):
+        """
+        获取情报分析队伍
+        """
+        return self.attackSurfaceResearch.intelligenceAnalysisCrew(target)
+
+    def get_establishing_foothold_research_crew(self, target: str, intelligence: str):
         """
         获取攻击面研究队伍
         """
-        return self.attackSurfaceResearch.establishingFootholdResearchCrew(target)
+        return self.attackSurfaceResearch.establishingFootholdResearchCrew(target, intelligence)
 
-    def get_attack_plan_review_crew(self, assets: str, plan: str, review: str | None = None):
+    def get_attack_plan_review_crew(self, assets: str, intelligence: str, plan: str, review: str | None = None):
         """
         获取攻击计划审核队伍
         """
-        return self.attackSurfaceResearch.attackPlanReviewCrew(assets, plan, review)
+        return self.attackSurfaceResearch.attackPlanReviewCrew(assets, intelligence, plan, review)

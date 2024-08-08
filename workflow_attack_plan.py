@@ -5,7 +5,7 @@ from langgraph.graph.graph import CompiledGraph
 from sqlalchemy import and_, func
 
 from persistence.database import DB
-from persistence.orm import Port, WebInfo, Vul, Workflow
+from persistence.orm import Port, WebInfo, Vul, Workflow, UrlEnum
 from team import Team
 from config import logger
 
@@ -14,10 +14,12 @@ WORK = 'attack_plan'
 
 class StatePlanReview(IntEnum):
     INIT = 0  # 初始化
-    REVIEW = 1  # 审核
-    PASS = 2  # 通过
-    FAIL = 3  # 否决
-    REWORK = 4  # 重做
+    PREPARATION = 1  # 准备工作
+    MAKE_PLAN = 2  # 制定计划
+    REVIEW = 3  # 审核
+    PASS = 4  # 通过
+    FAIL = 5  # 否决
+    REWORK = 6  # 重做
 
 
 class Target:
@@ -27,13 +29,15 @@ class Target:
     review: str | None
     status: StatePlanReview
 
-    def __init__(self, db: DB, task_id: int, target: str, asset: str, plan: str | None, review: str | None,
+    def __init__(self, db: DB, task_id: int, target: str, asset: str, intelligence: str | None, plan: str | None,
+                 review: str | None,
                  workflow_id=0, status=StatePlanReview.INIT):
         self.db = db
         self.task_id = task_id
         self.workflow_id = workflow_id
         self.target = target
         self.asset = asset
+        self.intelligence = intelligence
         self.plan = plan
         self.review = review
         self.status = status
@@ -45,7 +49,8 @@ class Target:
                 wf.work = WORK
                 wf.task_id = self.task_id
                 wf.status = int(self.status)
-                wf.data = {'asset': self.asset, 'plan': self.plan, 'review': self.review, 'target': self.target}
+                wf.data = {'asset': self.asset, 'intelligence': self.intelligence, 'plan': self.plan,
+                           'review': self.review, 'target': self.target}
                 session.add(wf)
                 session.flush()
                 session.commit()
@@ -59,7 +64,8 @@ class Target:
                 )
             ).first()
             wf.status = int(self.status)
-            wf.data = {'asset': self.asset, 'plan': self.plan, 'review': self.review, 'target': self.target}
+            wf.data = {'asset': self.asset, 'intelligence': self.intelligence, 'plan': self.plan, 'review': self.review,
+                       'target': self.target}
             session.commit()
 
 
@@ -88,26 +94,47 @@ class TaskNodesAttackPlan:
 
         return state
 
-    def establishing_foothold_research(self, state: TaskStateAttackPlan):
+    def preparation(self, state: TaskStateAttackPlan):
         """
-        打点研究
+        准备工作
         """
         for target in state['targets']:
-            if target.status in [StatePlanReview.INIT, StatePlanReview.REWORK]:
+            if target.status in [StatePlanReview.INIT, StatePlanReview.PREPARATION, StatePlanReview.REWORK]:
+                try:
+                    crew = self.team.get_intelligence_analysis_crew(target.asset)
+                    out = crew.kickoff()
+                    target.intelligence = out
+                    target.status = StatePlanReview.MAKE_PLAN
+                    target.update_status()
+                    logger.info("[preparation {}] {}\n{}", state['task_id'], target.target, out)
+                except ValueError as e:
+                    logger.debug("[preparation {}] {}\n{}", state['task_id'], target.target, e)
+                except Exception as e:
+                    logger.error("[preparation {}] {}\n{}", state['task_id'], target.target, e)
+        return state
+
+    def make_plan(self, state: TaskStateAttackPlan):
+        """
+        制定计划
+        """
+        for target in state['targets']:
+            if target.status in [StatePlanReview.MAKE_PLAN, StatePlanReview.REWORK]:
                 try:
                     if target.status == StatePlanReview.REWORK and target.review is not None:
-                        crew = self.team.get_attack_plan_review_crew(target.asset, target.plan, target.review)
+                        crew = self.team.get_attack_plan_review_crew(target.asset, target.intelligence, target.plan,
+                                                                     target.review)
                     else:
-                        crew = self.team.get_establishing_foothold_research_crew(target.asset)
+                        crew = self.team.get_establishing_foothold_research_crew(target.asset, target.intelligence)
                     out = crew.kickoff()
-                    target.plan = out
-                    target.status = StatePlanReview.REVIEW
-                    target.update_status()
-                    logger.info("[establishing_foothold_research {}] {}\n{}", state['task_id'], target.target, out)
+                    if out.startswith("FAIL") is False:
+                        target.plan = out
+                        target.status = StatePlanReview.REVIEW
+                        target.update_status()
+                    logger.info("[make_plan {}] {}\n{}", state['task_id'], target.target, out)
                 except ValueError as e:
-                    logger.debug("[establishing_foothold_research {}] {}\n{}", state['task_id'], target.target, e)
+                    logger.debug("[make_plan {}] {}\n{}", state['task_id'], target.target, e)
                 except Exception as e:
-                    logger.error("[establishing_foothold_research {}] {}\n{}", state['task_id'], target.target, e)
+                    logger.error("[make_plan {}] {}\n{}", state['task_id'], target.target, e)
         return state
 
     def attack_plan_review(self, state: TaskStateAttackPlan):
@@ -117,7 +144,7 @@ class TaskNodesAttackPlan:
         for target in state['targets']:
             if target.status in [StatePlanReview.REVIEW]:
                 try:
-                    crew = self.team.get_attack_plan_review_crew(target.asset, target.plan)
+                    crew = self.team.get_attack_plan_review_crew(target.asset, target.intelligence, target.plan)
                     out = crew.kickoff().strip()
                     if out.startswith("PASS"):
                         target.status = StatePlanReview.PASS
@@ -169,10 +196,28 @@ class TaskNodesAttackPlan:
                     func.jsonb_array_length(WebInfo.finger_prints) >= 1
                 )
             ).all()
-            for info in infos:
-                if info.target not in datas:
-                    datas[info.host] = []
-                datas[info.host].append(info.to_prompt_template())
+            urlenums = session.query(UrlEnum).filter(
+                and_(
+                    UrlEnum.task_id == task_id,
+                    UrlEnum.finger_prints != None,
+                    func.jsonb_array_length(UrlEnum.finger_prints) >= 1
+                )
+            ).all()
+            webs = infos + urlenums
+            if len(webs) == 0:
+                infos = session.query(WebInfo).filter(WebInfo.task_id == task_id).all()
+                urlenums = session.query(UrlEnum).filter(UrlEnum.task_id == task_id).all()
+                webs = infos + urlenums
+            for web in webs:
+                if isinstance(web, WebInfo):
+                    host = web.host
+                    target = web.target
+                else:
+                    host = web.web_info.host
+                    target = web.web_info.target
+                if target not in datas:
+                    datas[host] = []
+                datas[host].append(web.to_prompt_template())
 
             vuls = session.query(Vul).filter(Vul.task_id == task_id).all()
             for vul in vuls:
@@ -195,10 +240,11 @@ class TaskNodesAttackPlan:
         for target, data in datas.items():
             targets.append(
                 Target(
-                    self.db,
+                    db=self.db,
                     task_id=task_id,
                     target=target,
                     asset=f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}",
+                    intelligence=None,
                     plan=None,
                     review=None
                 ))
@@ -218,21 +264,22 @@ class WorkFlowAttackPlan:
         nodes = TaskNodesAttackPlan(db, team)
         workflow = StateGraph(TaskStateAttackPlan)
         workflow.add_node('init_task', nodes.init_task)
-        workflow.add_node('establishing_foothold_research', nodes.establishing_foothold_research)
+        workflow.add_node('preparation', nodes.preparation)
+        workflow.add_node('make_plan', nodes.make_plan)
         workflow.add_node('attack_plan_review', nodes.attack_plan_review)
         workflow.add_node('finish', nodes.finish)
 
         workflow.set_entry_point('init_task')
         workflow.set_finish_point('finish')
 
-        workflow.add_edge('init_task', 'establishing_foothold_research')
-        workflow.add_edge('establishing_foothold_research', 'attack_plan_review')
+        workflow.add_edge('init_task', 'preparation')
+        workflow.add_edge('preparation', 'make_plan')
+        workflow.add_edge('make_plan', 'attack_plan_review')
         workflow.add_conditional_edges(
             source='attack_plan_review',
-            # 条件边, 有新目标则继续侦察
             path=nodes.edge_shuld_finish,
             path_map={
-                'rework': 'establishing_foothold_research',
+                'rework': 'preparation',
                 'pass': 'finish'
             }
         )
@@ -255,8 +302,17 @@ class WorkFlowAttackPlan:
             ).all()
             for wf in wfs:
                 state['targets'].append(
-                    Target(self.db, wf.task_id, wf.data['target'], wf.data['asset'], wf.data['plan'], wf.data['review'],
-                           wf.id, StatePlanReview(wf.status))
+                    Target(
+                        db=self.db,
+                        task_id=wf.task_id,
+                        target=wf.data['target'],
+                        asset=wf.data['asset'],
+                        intelligence=wf.data['intelligence'],
+                        plan=wf.data['plan'],
+                        review=wf.data['review'],
+                        workflow_id=wf.id,
+                        status=StatePlanReview(wf.status)
+                    )
                 )
 
         self.app.invoke(state)

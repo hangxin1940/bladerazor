@@ -3,7 +3,7 @@ import re
 from bs4 import BeautifulSoup, Comment
 
 
-def analyze(html: str) -> str:
+def analyze(html: str, pure=False) -> str:
     soup = BeautifulSoup(html, 'html.parser')
     datas = ""
     puretext = '\n'.join([line.rstrip() for line in soup.get_text(separator='\n').split('\n') if line.rstrip()])
@@ -28,7 +28,7 @@ def analyze(html: str) -> str:
 
     # 匹配文件路径
     file_paths = [tag['src'] for tag in soup.find_all(src=True)] + [tag['href'] for tag in soup.find_all(href=True)]
-    file_paths.extend(_find_paths(puretext))
+    file_paths.extend(find_paths(puretext))
     file_paths = list(set(file_paths))
     if len(file_paths) > 0:
         datas = f"{datas}\n文件路径: {file_paths}"
@@ -54,14 +54,14 @@ def analyze(html: str) -> str:
     if len(form_fields) > 0:
         datas = f"{datas}\n表单字段: {form_fields}"
 
-    if puretext != "":
+    if pure and puretext != "":
         datas = f"{datas}\n\n纯文本内容:\n`{puretext}`"
 
     datas = datas.strip()
     return datas
 
 
-def _find_paths(text: str) -> []:
+def find_paths(text: str) -> []:
     # 正则表达式模式，用于匹配潜在的路径信息
     path_patterns = [
         r"(?:[a-z]:)?(?:[\\\/][a-z0-9_. -]*)+",

@@ -6,7 +6,6 @@ An AI-Driven Pentesting Solution.
 
 资产侦察工具借鉴了 [OneForAll](https://github.com/shmilylty/OneForAll)
 
-
 ## 使用
 
     # 创建一个 python 3.12 虚拟环境, 你也可以用 virtualenv
@@ -32,9 +31,10 @@ An AI-Driven Pentesting Solution.
 
 ## LLM
 
-| LLM           | 效果 | 推荐  |
-|---------------|----|-----|
-| gpt-3.5-turbo | 可用 | ⭐⭐⭐ | 
+| LLM           | 效果 | 推荐   |
+|---------------|----|------|
+| gpt-3.5-turbo | 可用 | ⭐⭐⭐  | 
+| gpt-4o        | 可用 | ⭐⭐⭐⭐ | 
 
 ## 工作机制
 
@@ -62,18 +62,19 @@ stateDiagram-v2
     DirectoryBruteforcing --> [*]
 ```
 
-
 ```mermaid
 ---
 title: 攻击阶段
 ---
 stateDiagram-v2
+    state "情报分析" as IntelligenceAnalysis
     state "攻击面分析" as AttackSurfaceResearch
     state "打点研究" as EstablishingFootholdResearch
     state "审核攻击计划" as AttackPlanReview
     state "部署并实施攻击" as DeployAndExecuteTheAttack
     state attack_plan_review_state <<choice>>
-    [*] --> AttackSurfaceResearch
+    [*] --> IntelligenceAnalysis
+    IntelligenceAnalysis --> AttackSurfaceResearch
     AttackSurfaceResearch --> EstablishingFootholdResearch
     EstablishingFootholdResearch --> AttackPlanReview
     AttackPlanReview --> attack_plan_review_state
