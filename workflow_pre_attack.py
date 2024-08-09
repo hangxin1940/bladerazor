@@ -328,6 +328,7 @@ class WorkFlowPreAttack:
     def __init__(self, db: DB, team: Team, debug: Optional[bool] = None):
         self.db = db
         self.team = team
+        self.debug = debug
 
         nodes = TaskNodesPreAttack(db, team)
         workflow = StateGraph(TaskStatePreAttack)
