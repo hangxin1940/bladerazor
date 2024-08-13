@@ -1,6 +1,7 @@
 from typing import Optional
 
 from exploits.attack_surface_research import AttackSurfaceResearch
+from exploits.deploy_attack import DeployAttack
 from exploits.vul_scan_expert import VulScanExpert
 from persistence.database import DB
 from rag.rag import RAG
@@ -13,6 +14,7 @@ class Team:
     cyberAssetsResearchers: CyberAssetsResearchers | None = None
     vulScanExpert: VulScanExpert | None = None
     attackSurfaceResearch: AttackSurfaceResearch | None = None
+    deployAttack: DeployAttack | None = None
 
     def __init__(self,
                  db: DB,
@@ -44,6 +46,13 @@ class Team:
         )
 
         self.attackSurfaceResearch = AttackSurfaceResearch(
+            db=db,
+            rag=rag,
+            llm=llm,
+            verbose=debug
+        )
+
+        self.deployAttack = DeployAttack(
             db=db,
             rag=rag,
             llm=llm,
@@ -85,3 +94,9 @@ class Team:
         获取攻击计划审核队伍
         """
         return self.attackSurfaceResearch.attackPlanReviewCrew(assets, intelligence, plan, review)
+
+    def get_establishing_foothold_deploy_attack_crew(self, asset: str, plan: str):
+        """
+        获取攻击队伍
+        """
+        return self.deployAttack.establishingFootholdAttackCrew(asset, plan)

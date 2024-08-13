@@ -2,11 +2,14 @@ import logging
 import os
 
 import opentelemetry.sdk.trace
+from embedchain.config import BaseLlmConfig
 from embedchain.embedder.openai import OpenAIEmbedder
+from embedchain.llm.openai import OpenAILlm
 from sqlalchemy import func, and_
 
 from exploits.attack_surface_research import AttackSurfaceResearch
 from workflow_attack_plan import WorkFlowAttackPlan
+from workflow_deploy_attack import WorkFlowDeployAttack
 from workflow_pre_attack import WorkFlowPreAttack
 from persistence.vectordb import NewEmbedChain
 from rag.rag import RAG
@@ -47,17 +50,17 @@ if __name__ == '__main__':
 
     target = 'https://www.example.com/'
     print('target', target)
-    # # task_id = 1
-    with db.DBSession() as session:
-        task = PenTestTask()
-        task.target = target
-        task.name = target
-        session.add(task)
-        session.commit()
-        task_id = task.id
+    task_id = 2
+    # with db.DBSession() as session:
+    #     task = PenTestTask()
+    #     task.target = target
+    #     task.name = target
+    #     session.add(task)
+    #     session.commit()
+    #     task_id = task.id
     #
     llm = ChatOpenAI(
-        temperature=0.8,
+        temperature=0.9,
         # max_tokens=16385,
         # http_client=httpx.Client(proxy=os.environ['PROXY']),
         # http_client=httpx.AsyncClient(proxy=os.environ['PROXY']),
@@ -137,12 +140,12 @@ if __name__ == '__main__':
         gobuster_wordlist_path=os.environ['GOBUSTER_WORDLIST_PATH'],
     )
 
-    workflow = WorkFlowPreAttack(
-        db=db,
-        team=team,
-        debug=debug
-    )
-    workflow.run(task_id, target)
+    # workflow = WorkFlowPreAttack(
+    #     db=db,
+    #     team=team,
+    #     debug=debug
+    # )
+    # workflow.run(task_id, target)
 
     # workflowAttack = WorkFlowAttackPlan(
     #     db=db,
@@ -150,4 +153,12 @@ if __name__ == '__main__':
     #     debug=debug
     # )
     #
-    # workflowAttack.run(1)
+    # workflowAttack.run(2)
+
+    workflowDeployAttack = WorkFlowDeployAttack(
+        db=db,
+        team=team,
+        debug=debug
+    )
+
+    workflowDeployAttack.run(2)
