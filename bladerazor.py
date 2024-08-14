@@ -24,6 +24,7 @@ from persistence.orm import PenTestTask, Vul, WebInfo, Port
 from recon.cyber_assets_researcher import CyberAssetsResearchers
 
 if __name__ == '__main__':
+    # TODO 移至 cmd 目录
     # PROXY_SOCKS = "http://localhost:1080"
     # os.environ['http_proxy'] = PROXY_SOCKS
     # os.environ['HTTP_PROXY'] = PROXY_SOCKS
@@ -33,6 +34,7 @@ if __name__ == '__main__':
     # os.environ["OPENAI_MODEL_NAME"] = "gpt-3.5-turbo"
 
     debug = True
+    # 初始化数据库
     db = DB(
         user='bladerazor',
         password='123456',
@@ -42,23 +44,13 @@ if __name__ == '__main__':
         # echo=debug,
     )
 
+    # 初始化RAG
     embder = OpenAIEmbedder()
-
     rag = RAG(db=db, embder=embder)
 
     # ragtool = RagSearchTool(rag)
 
-    target = 'https://www.example.com/'
-    print('target', target)
-    task_id = 2
-    # with db.DBSession() as session:
-    #     task = PenTestTask()
-    #     task.target = target
-    #     task.name = target
-    #     session.add(task)
-    #     session.commit()
-    #     task_id = task.id
-    #
+    # 初始化LLM
     llm = ChatOpenAI(
         temperature=0.9,
         # max_tokens=16385,
@@ -66,68 +58,7 @@ if __name__ == '__main__':
         # http_client=httpx.AsyncClient(proxy=os.environ['PROXY']),
     )
 
-    # cyberAssetsResearchers = CyberAssetsResearchers(
-    #     db=db,
-    #     llm=llm,
-    #     verbose=debug
-    # )
-    #
-    # crew = cyberAssetsResearchers.reconCrew(task_id, target)
-    #
-    # assets = crew.kickoff()
-    # print(assets)
-
-    # vulScanExpert = VulScanExpert(
-    #     db=db,
-    #     llm=llm,
-    #     nuclei_path=os.environ['NUCLEI_PATH'],
-    #     templates_path=os.environ['NUCLEI_TEMPLATES_PATH'],
-    #     verbose=debug
-    # )
-
-    # attackSurfaceResearch = AttackSurfaceResearch(
-    #     db=db,
-    #     rag=rag,
-    #     llm=llm,
-    #     verbose=debug
-    # )
-    #
-    # datas = {}
-    # with db.DBSession() as session:
-    #     infos = session.query(WebInfo).filter(
-    #         and_(
-    #             WebInfo.task_id == 1,
-    #             WebInfo.finger_prints != None,
-    #             func.jsonb_array_length(WebInfo.finger_prints) >= 1
-    #         )
-    #     ).all()
-    #     for info in infos:
-    #         if info.target not in datas:
-    #             datas[info.target] = []
-    #         datas[info.target].append(info.to_prompt_template())
-    #
-    #     vuls = session.query(Vul).filter(Vul.task_id == 1).all()
-    #     for vul in vuls:
-    #         if vul.target not in datas:
-    #             datas[vul.target] = []
-    #         datas[vul.target].append(vul.to_prompt_template())
-    #
-    #     ports = session.query(Port).filter(Port.task_id == 1).all()
-    #     for port in ports:
-    #         if port.ip not in datas:
-    #             datas[port.ip] = []
-    #         datas[port.ip].append(port.to_prompt_template())
-    #
-    # attacks = []
-    # for target, data in datas.items():
-    #     datastr = f"目标: {target}\n{'\n\n---------------\n\n'.join(data)}"
-    #     crew = attackSurfaceResearch.establishingFootholdResearchCrew(datastr)
-    #
-    #     vuls = crew.kickoff()
-    #     attacks.append(vuls)
-    #
-    # print(vuls)
-
+    # 初始化团队
     team = Team(
         db=db,
         rag=rag,
@@ -140,25 +71,43 @@ if __name__ == '__main__':
         gobuster_wordlist_path=os.environ['GOBUSTER_WORDLIST_PATH'],
     )
 
-    # workflow = WorkFlowPreAttack(
-    #     db=db,
-    #     team=team,
-    #     debug=debug
-    # )
-    # workflow.run(task_id, target)
+    # 目标
+    target = 'https://www.example.com/'
+    print('target', target)
+    task_id = 0
 
-    # workflowAttack = WorkFlowAttackPlan(
-    #     db=db,
-    #     team=team,
-    #     debug=debug
-    # )
-    #
-    # workflowAttack.run(2)
+    with db.DBSession() as session:
+        task = PenTestTask()
+        task.target = target
+        task.name = target
+        session.add(task)
+        session.commit()
+        task_id = task.id
 
+
+
+    # 工作流 - 预攻击
+    workflow = WorkFlowPreAttack(
+        db=db,
+        team=team,
+        debug=debug
+    )
+    workflow.run(task_id, target)
+
+    # 工作流 - 攻击计划
+    workflowAttack = WorkFlowAttackPlan(
+        db=db,
+        team=team,
+        debug=debug
+    )
+
+    workflowAttack.run(task_id)
+
+    # 工作流 - 部署攻击
     workflowDeployAttack = WorkFlowDeployAttack(
         db=db,
         team=team,
         debug=debug
     )
 
-    workflowDeployAttack.run(2)
+    workflowDeployAttack.run(task_id)
